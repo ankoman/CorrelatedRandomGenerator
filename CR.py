@@ -110,7 +110,7 @@ class CRG:
             Shares of a, b, c. And boolean share of c when e32/64.
         """
         if self.n_stored_cr < 1:
-            self.__gen_cr()
+            self._gen_cr()
         
         self.n_stored_cr -= 1
         if self.party == 0:
@@ -136,7 +136,7 @@ class CRG:
         return retval
 
             
-    def __gen_cr(self):
+    def _gen_cr(self):
 
         ### Random number generation
         a0 = self.PRNG256_0.gen()
