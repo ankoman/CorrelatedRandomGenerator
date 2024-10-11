@@ -84,6 +84,10 @@ class CRG:
     stored_a0_B = []
     stored_a1_B = []
     n_stored_cr = 0
+    party = 0
+    abe = None
+    width = None
+    cr_unit = None
 
     def __init__(self, seed = 0, party = 0, cr_mode = None):
         a0, a1, a, b0, b1, b, c0, c1, c = [0]*9
