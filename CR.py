@@ -40,13 +40,14 @@ def simd_sub(x, y, width):
 def simd_mul(x, y, width):
     return simd_mulsub(x, y, width, True)
 
-def split_int(val, width):
+def split_int(val, width, reverse = True):
     list_t = []
     mask = 2**width - 1
     for i in range(256//width):
         list_t.append(val& mask)
         val >>= width
-    list_t.reverse()
+    if reverse:
+        list_t.reverse()
 
     return list_t
 

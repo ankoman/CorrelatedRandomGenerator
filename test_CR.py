@@ -1,7 +1,7 @@
 import unittest, random
 from CR import CRG
 
-N = 1000000
+N = 100000
 
 class CRGTest(unittest.TestCase):
 

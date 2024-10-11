@@ -1,6 +1,18 @@
 from fire import Fire
 from CR import CRG, simd_sub, simd_mul, split_int
 
+def make_carry_mask(width):
+    not64, not128, not256 = 1,1,1
+    if width == 64:
+        not64, not128, not256 = 0,1,1
+    elif width == 128:
+        not64, not128, not256 = 0,0,1
+    elif width == 256:
+        not64, not128, not256 = 0,0,0
+
+    return (not64 << 224) + (not128 << 192) + (not64 << 160) + (not256 << 128) + (not64 << 96) + (not128 << 64) + (not64 << 32) 
+    
+
 def CSA_256(a, b, c):
     ### Carry Save Adder
     mask = 2**256 - 1
@@ -8,11 +20,12 @@ def CSA_256(a, b, c):
     sc = (a & b) | (a & c) | (b & c)
     return ps & mask, sc & mask
 
-def CSA_addsub_256(a, b, sub):
-    ### CSA
+def CSA_addsub_256(a, b, sub, width):
+    ### Two's complement
     mask = 2**256-1 if sub else 0
     b = b ^ mask
-    return CSA_256(a, b, sub)
+    ones = make_carry_mask(width) + sub
+    return CSA_256(a, b, ones)
  
 
 def ADD_32(a, b, c):
@@ -21,8 +34,8 @@ def ADD_32(a, b, c):
         a, b: Adder input less than 32 bits
         c: One-bit adder input 
     Returns:
-        s = 32 bits a + b + c
-        cy = 1 bit carry
+        s: 32 bits a + b + c
+        cy: 1 bit carry
     """
     sum = a + b + c
     s = sum & (2**32 -1)
@@ -48,10 +61,11 @@ def TreeAdder(x, y, mode, width):
 
     ### CSA
     sub = 1 if mode == 'a' else 0
-    ps, sc = CSA_addsub_256(x, y, sub)
+    ps, sc = CSA_addsub_256(x, y, sub, width)
     sc <<= 1
-    list_ps_32 = split_int(ps, 32)
-    list_sc_32 = split_int(sc, 32)
+    sc &= (2**256-1) ^ make_carry_mask(width)
+    list_ps_32 = split_int(ps, 32, False)
+    list_sc_32 = split_int(sc, 32, False)
 
     ### First stage adder
     list_sum_1 = [0] * 8
