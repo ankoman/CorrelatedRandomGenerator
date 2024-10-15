@@ -27,7 +27,6 @@ def CSA_addsub_256(a, b, sub, width):
     ones = make_carry_mask(width) + sub
     return CSA_256(a, b, ones)
  
-
 def ADD_32(a, b, c):
     """ Calculate a + b + c
     Args:
@@ -42,7 +41,74 @@ def ADD_32(a, b, c):
     cy = sum >> 32
     return s, cy
 
-def TreeAdder(x, y, mode, width):
+def CSAMUL_256_32(a, b):
+    """ 256 times 32 bits multiplier
+    Args:
+        a: Multiplicand
+        b: Multiplier
+    Returns:
+        CSA form 256 bits integer, ps and sc.
+    """
+
+    a = split_int(a, 32, False)
+    ps, sc = 0, 0
+    for i in range(8):
+        pp = a[i] * b
+        ps, sc = CSA_256(ps, sc << 1, pp << i*32)
+
+    return ps, sc
+
+def simd_mul_hw(x, y, mode, width):
+    """ AND or Multiply x and y
+    Args:
+        x,y: Operational input
+        mode: 'a' or 'b'. When 'a'/'b', run multiply/and operation.
+        width: SIMD operation width
+    Returns:
+        CSA form 256 bits integer, ps and sc.
+    """
+    mask32 = bytes([0xff, 0xff, 0xff, 0xff])
+    zeros_4 = bytes([0, 0, 0, 0])
+    mask64, mask128, mask256 = zeros_4, zeros_4, zeros_4
+    if width == 64:
+        mask64, mask128, mask256 = mask32, zeros_4, zeros_4
+    elif width == 128:
+        mask64, mask128, mask256 = mask32, mask32, zeros_4
+    elif width == 256:
+        mask64, mask128, mask256 = mask32, mask32, mask32
+    
+    acc_ps, acc_sc = 0, 0
+    y = split_int(y, 32, False)
+    masks = [
+        mask256 + mask256 + mask256 + mask256 + mask128 + mask128 + mask64  + mask32,
+        mask256 + mask256 + mask256 + mask256 + mask128 + mask128 + mask32  + mask64,
+        mask256 + mask256 + mask256 + mask256 + mask64  + mask32  + mask128 + mask128,
+        mask256 + mask256 + mask256 + mask256 + mask32  + mask64  + mask128 + mask128,
+        mask128 + mask128 + mask64  + mask32  + mask256 + mask256 + mask256 + mask256,
+        mask128 + mask128 + mask32  + mask64  + mask256 + mask256 + mask256 + mask256,
+        mask64  + mask32  + mask128 + mask128 + mask256 + mask256 + mask256 + mask256,
+        mask32  + mask64  + mask128 + mask128 + mask256 + mask256 + mask256 + mask256
+    ]
+    shifts = [
+        [0,0,0,0,0,0,0,0], # 32
+        [0, 32, 0, 32, 0, 32, 0, 32], # 64
+        [0, 32, 64, 96, 0, 32, 64, 96], # 128
+        [0, 32, 64, 96, 128, 160, 192, 224] # 256
+    ]
+    tab = {32:0, 64:1, 128:2, 256:3}
+
+    for i in range(8):
+        mask = int.from_bytes(masks[i], 'big')
+        ps, sc = CSAMUL_256_32(x & mask, y[i])
+        ps <<= shifts[tab[width]][i]
+        sc <<= shifts[tab[width]][i]
+        acc_ps += ps & mask
+        acc_sc += (sc << 1) & mask
+        ADD_32
+        print(hex(acc_ps + acc_sc))
+    return 0
+
+def simd_add_hw(x, y, mode, width):
     """ XOR or Subtruct x and y
     Args:
         x,y: Operational input
@@ -64,6 +130,7 @@ def TreeAdder(x, y, mode, width):
     ps, sc = CSA_addsub_256(x, y, sub, width)
     sc <<= 1
     sc &= (2**256-1) ^ make_carry_mask(width)
+    sc = sc if mode == 'a' else 0
     list_ps_32 = split_int(ps, 32, False)
     list_sc_32 = split_int(sc, 32, False)
 
@@ -139,36 +206,13 @@ class CRG_HW(CRG):
         b0 = self.PRNG256_3.gen()
         c0 = self.PRNG256_4.gen()
 
-        if self.abe == 'b':
-            ### Boolean
-            a1 = a ^ a0
-            b1 = b ^ b0
-            c  = a & b
-            c1 = c ^ c0
-        elif self.abe == 'a':
-            ### Arithmetic
-            a1 = simd_sub(a, a0, self.width)
-            b1 = simd_sub(b, b0, self.width)
-            c  = simd_mul(a, b, self.width)
-            c1 = simd_sub(c, c0, self.width)
-        elif self.abe == 'e':
-            ### Extended
-            mask = 0x0000000100000001000000010000000100000001000000010000000100000001 if self.width == 32 else 0x10000000000000001000000000000000100000000000000010000000000000001 if self.width == 64 else None
-            a = a & mask
-
-            tmp_a_B = 0
-            for i in range(8 - 1):
-                a_bit = (a >> (32 * (i + 1))) & 1
-                tmp_a_B |= a_bit << i
-
-            a1 = simd_sub(a, a0, self.width)
-            a1_B = (tmp_a_B ^ a0) & 0x7f
-            a1 = a1 >> 7
-            a1 = a1 << 7
-            a1 = a1 | a1_B
-            b1 = simd_sub(b, b0, self.width)
-            c  = simd_mul(b, a, self.width)
-            c1 = simd_sub(c, c0, self.width)
+        a1 = simd_add_hw(a, a0, self.abe, self.width)
+        b1 = simd_add_hw(b, b0, self.abe, self.width)
+        if self.abe == 'a':
+            c  = simd_mul_hw(a, b, self.abe,self.width)
+        else:
+            c = a & b
+        c1 = simd_add_hw(c, c0, self.abe, self.width)
 
         self.n_stored_cr = self.cr_unit
         if self.abe == 'e':
@@ -191,16 +235,17 @@ class CRG_HW(CRG):
             self.stored_a1_B = [self.stored_a1_B[1], self.stored_a1_B[3], self.stored_a1_B[5]]
 
 
-def main(cr_mode, n_cr = 1):
+def main(cr_mode, n_cr = 1, party = 0):
     """
     Args:
         cr_mode: [REQUIRED] One of b256/128/64/32, a256/128/64/32, e64/32.
         n_cr:    The number of CRs to be generated.
+        party:   Party number 0/1.
     Returns:
         n_cr correlated random numbers.
     """
 
-    crg = CRG_HW(0, 0, cr_mode)
+    crg = CRG_HW(0, party, cr_mode)
     print(crg.get_cr())
 
 if __name__ == "__main__":

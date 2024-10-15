@@ -194,6 +194,7 @@ class CRG:
         self.stored_c0 = split_int(c0, self.width)
         self.stored_c1 = split_int(c1, self.width)
         self.stored_c  = split_int(c, self.width)
+        print(hex(c))
 
         self.stored_a0_B = list(map(int, bin(self.stored_a0[-1] & 0x7f)[2:].zfill(7)))
         self.stored_a1_B = list(map(int, bin(self.stored_a1[-1] & 0x7f)[2:].zfill(7)))
@@ -201,28 +202,19 @@ class CRG:
             self.stored_a0_B = [self.stored_a0_B[1], self.stored_a0_B[3], self.stored_a0_B[5]]
             self.stored_a1_B = [self.stored_a1_B[1], self.stored_a1_B[3], self.stored_a1_B[5]]
 
-def main(cr_mode, n_cr = 1):
+def main(cr_mode, n_cr = 1, party = 0):
     """
     Args:
     cr_mode: [REQUIRED] One of b256/128/64/32, a256/128/64/32, e64/32.
     n_cr:    The number of CRs to be generated.
-
+    party:   Party number 0/1.
     Returns:
     n_cr correlated random numbers.
     """
 
-    crg = CRG(0, 0, cr_mode)
-    print(crg.get_cr())
-    print(crg.get_cr())
-    print(crg.get_cr())
-    print(crg.get_cr())
-    print(crg.get_cr())
-    print(crg.get_cr())
-    print(crg.get_cr())
-    print(crg.get_cr())
-    print(crg.get_cr())
-    print(crg.get_cr())
-
+    crg = CRG(0, party, cr_mode)
+    crg._gen_cr()
+    print(crg.get_raw_val_for_test())
 
 
     # print(f"{c0 = :064x}")
