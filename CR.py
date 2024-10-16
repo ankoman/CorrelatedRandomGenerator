@@ -194,7 +194,6 @@ class CRG:
         self.stored_c0 = split_int(c0, self.width)
         self.stored_c1 = split_int(c1, self.width)
         self.stored_c  = split_int(c, self.width)
-        print(hex(c))
 
         self.stored_a0_B = list(map(int, bin(self.stored_a0[-1] & 0x7f)[2:].zfill(7)))
         self.stored_a1_B = list(map(int, bin(self.stored_a1[-1] & 0x7f)[2:].zfill(7)))

@@ -1,8 +1,8 @@
 import unittest, random
-from CR_HW import simd_add_hw, CSA_256, CSA_addsub_256, CRG_HW
-from CR import simd_sub, split_int, CRG
+from CR_HW import simd_subxor_hw, CSA_256, CSA_addsub_256, CRG_HW, simd_muland_hw, simd_add_hw, CSAMUL_256_32
+from CR import simd_sub, split_int, CRG, simd_mul
 
-N = 1000000
+N = 10000000
 
 class CRG_HW_Test(unittest.TestCase):
 
@@ -12,13 +12,33 @@ class CRG_HW_Test(unittest.TestCase):
         cls.seed = random.randint(0,2**128-1)
         print(f'{cls.seed = }\n')
 
-    def test_simd_add_hw(self):
-        for _ in range(N):
-            a = random.randint(0, 2**256-1)
-            b = random.randint(0, 2**256-1)
-            exp = simd_sub(a, b, 64)
-            act = simd_add_hw(a, b, 'a', 64)
-            self.assertEqual(exp, act)
+    def test_CSAMUL_256_32(self):
+            for _ in range(N):
+                a = random.randint(0, 2**256-1)
+                b = random.randint(0, 2**32-1)
+                exp = a*b & (2**256-1)
+                ps, sc = CSAMUL_256_32(a, b)
+                act = ps + (sc << 1) & (2**256-1)
+                self.assertEqual(exp, act, f'{exp = :x}, {act = :x}')
+
+    def test_simd_subxor_hw(self):
+        for width in [32, 64, 128, 256]:
+            for _ in range(N):
+                a = random.randint(0, 2**256-1)
+                b = random.randint(0, 2**256-1)
+                exp = simd_sub(a, b, width)
+                act = simd_subxor_hw(a, b, 'a', width)
+                self.assertEqual(exp, act)
+
+    def test_simd_muland_hw(self):
+        for width in [32, 64, 128, 256]:
+            for _ in range(N):
+                a = random.randint(0, 2**256-1)
+                b = random.randint(0, 2**256-1)
+                exp = simd_mul(a, b, width)
+                ps, sc = simd_muland_hw(a, b, 'a', width)
+                act = simd_add_hw(ps, sc << 1, width)
+                self.assertEqual(exp, act, f'{width = }, {exp - act = :x}')
 
     def test_CSA_256(self):
         for _ in range(N):
@@ -42,8 +62,8 @@ class CRG_HW_Test(unittest.TestCase):
             self.assertEqual(exp, act)
 
     def crg_mode_test_N(self, mode):
-        crg = CRG(self.seed, 0, mode)
-        crg_hw = CRG_HW(self.seed, 0, mode)
+        crg = CRG(self.seed, 1, mode)
+        crg_hw = CRG_HW(self.seed, 1, mode)
 
         for _ in range(N):
             exp = crg.get_cr()

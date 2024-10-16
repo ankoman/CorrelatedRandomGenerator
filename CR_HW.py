@@ -24,7 +24,7 @@ def CSA_addsub_256(a, b, sub, width):
     ### Two's complement
     mask = 2**256-1 if sub else 0
     b = b ^ mask
-    ones = make_carry_mask(width) + sub
+    ones = make_carry_mask(width)*sub + sub
     return CSA_256(a, b, ones)
  
 def ADD_32(a, b, c):
@@ -50,15 +50,16 @@ def CSAMUL_256_32(a, b):
         CSA form 256 bits integer, ps and sc.
     """
 
+    mask = 2**256-1
     a = split_int(a, 32, False)
     ps, sc = 0, 0
     for i in range(8):
-        pp = a[i] * b
+        pp = a[i] * b & mask
         ps, sc = CSA_256(ps, sc << 1, pp << i*32)
 
-    return ps, sc
+    return ps & mask, sc & mask
 
-def simd_mul_hw(x, y, mode, width):
+def simd_muland_hw(x, y, mode, width):
     """ AND or Multiply x and y
     Args:
         x,y: Operational input
@@ -77,7 +78,6 @@ def simd_mul_hw(x, y, mode, width):
     elif width == 256:
         mask64, mask128, mask256 = mask32, mask32, mask32
     
-    acc_ps, acc_sc = 0, 0
     y = split_int(y, 32, False)
     masks = [
         mask256 + mask256 + mask256 + mask256 + mask128 + mask128 + mask64  + mask32,
@@ -97,18 +97,111 @@ def simd_mul_hw(x, y, mode, width):
     ]
     tab = {32:0, 64:1, 128:2, 256:3}
 
+    acc_ps, acc_sc = 0, 0
     for i in range(8):
         mask = int.from_bytes(masks[i], 'big')
         ps, sc = CSAMUL_256_32(x & mask, y[i])
         ps <<= shifts[tab[width]][i]
-        sc <<= shifts[tab[width]][i]
-        acc_ps += ps & mask
-        acc_sc += (sc << 1) & mask
-        ADD_32
-        print(hex(acc_ps + acc_sc))
-    return 0
+        sc <<= shifts[tab[width]][i] + 1
+        ps &= mask
+        sc &= mask
+        # sc &= (2**256-1) ^ make_carry_mask(width) ### Probably unnecessary
+        tmp_ps, tmp_sc = CSA_256(acc_ps, ps, sc)
+        tmp_sc <<= 1
+        tmp_sc &= (2**256-1) ^ make_carry_mask(width)
+        acc_sc <<= 1
+        acc_sc &= (2**256-1) ^ make_carry_mask(width)
+        acc_ps, acc_sc = CSA_256(tmp_ps, tmp_sc, acc_sc)
 
-def simd_add_hw(x, y, mode, width):
+    acc_sc &= ((2**256-1) ^ make_carry_mask(width) >> 1)
+    return acc_ps, acc_sc
+
+def simd_add_hw(x, y, width):
+    """ Add x and y
+    Args:
+        x,y: Operational input
+        width: SIMD operation width
+    Returns:
+        256 bits integer
+    """
+    is64, is128, is256 = 0,0,0
+    if width == 64:
+        is64, is128, is256 = 1,0,0
+    elif width == 128:
+        is64, is128, is256 = 1,1,0
+    elif width == 256:
+        is64, is128, is256 = 1,1,1
+
+    ### CSA
+    ps, sc = CSA_256(x, y, 0)
+    sc <<= 1
+    sc &= (2**256-1) ^ make_carry_mask(width)
+    list_ps_32 = split_int(ps, 32, False)
+    list_sc_32 = split_int(sc, 32, False)
+
+    ### First stage adder
+    list_sum_1 = [0] * 8
+    list_cy_1 = [0] * 8
+    for i in range(8):
+        list_sum_1[i], list_cy_1[i] = ADD_32(list_ps_32[i], list_sc_32[i], 0)
+
+    ### Second stage
+    list_sum_2 = list_sum_1.copy()
+    list_cy_2 = list_cy_1.copy()
+    sum, cy = ADD_32(list_sum_1[1], 0, list_cy_1[0] & is64)
+    list_sum_2[1] = sum
+    list_cy_2[1] = cy
+
+    ### Third stage
+    list_sum_3 = list_sum_2.copy()
+    list_cy_3 = list_cy_2.copy()
+    sum, cy = ADD_32(list_sum_2[2], 0, (list_cy_2[1] | list_cy_1[1]) & is128)
+    list_sum_3[2] = sum
+    list_cy_3[2] = cy
+
+    ### Fourth stage
+    list_sum_4 = list_sum_3.copy()
+    list_cy_4 = list_cy_3.copy()
+    sum, cy = ADD_32(list_sum_3[3], 0, (list_cy_3[2] | list_cy_2[2]) & is64)
+    list_sum_4[3] = sum
+    list_cy_4[3] = cy
+
+    ### Fifth stage
+    list_sum_5 = list_sum_4.copy()
+    list_cy_5 = list_cy_4.copy()
+    sum, cy = ADD_32(list_sum_4[4], 0, (list_cy_4[3] | list_cy_3[3]) & is256)
+    list_sum_5[4] = sum
+    list_cy_5[4] = cy
+
+    ### Sixth stage
+    list_sum_6 = list_sum_5.copy()
+    list_cy_6 = list_cy_5.copy()
+    sum, cy = ADD_32(list_sum_5[5], 0, (list_cy_5[4] | list_cy_4[4]) & is64)
+    list_sum_6[5] = sum
+    list_cy_6[5] = cy
+
+    ### Sevnth stage
+    list_sum_7 = list_sum_6.copy()
+    list_cy_7 = list_cy_6.copy()
+    sum, cy = ADD_32(list_sum_6[6], 0, (list_cy_6[5] | list_cy_5[5]) & is128)
+    list_sum_7[6] = sum
+    list_cy_7[6] = cy
+
+    ### Eigth stage
+    list_sum_8 = list_sum_7.copy()
+    list_cy_8 = list_cy_7.copy()
+    sum, cy = ADD_32(list_sum_7[7], 0, (list_cy_7[6] | list_cy_6[6]) & is64)
+    list_sum_8[7] = sum
+    list_cy_8[7] = cy
+
+    ret = 0
+    for i in range(8):
+        ret <<= 32
+        ret |= list_sum_8[7-i]
+
+    return ret
+
+def simd_subxor_hw(x, y, mode, width):
     """ XOR or Subtruct x and y
     Args:
         x,y: Operational input
@@ -206,13 +299,13 @@ class CRG_HW(CRG):
         b0 = self.PRNG256_3.gen()
         c0 = self.PRNG256_4.gen()
 
-        a1 = simd_add_hw(a, a0, self.abe, self.width)
-        b1 = simd_add_hw(b, b0, self.abe, self.width)
+        a1 = simd_subxor_hw(a, a0, self.abe, self.width)
+        b1 = simd_subxor_hw(b, b0, self.abe, self.width)
         if self.abe == 'a':
-            c  = simd_mul_hw(a, b, self.abe,self.width)
+            c  = simd_mul(a, b, self.width) # simd_mul_hw(a, b, self.abe,self.width)
         else:
             c = a & b
-        c1 = simd_add_hw(c, c0, self.abe, self.width)
+        c1 = simd_subxor_hw(c, c0, self.abe, self.width)
 
         self.n_stored_cr = self.cr_unit
         if self.abe == 'e':
