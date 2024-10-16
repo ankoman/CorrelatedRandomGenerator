@@ -10,3 +10,5 @@ python3 -m unittest
 - ビットスライス実装
 - 128bitデータパス
 - extended用のラウンド実装PRNG
+- c1減算をmulandへ取り込み
+- extended実装

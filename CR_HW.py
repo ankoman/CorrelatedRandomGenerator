@@ -302,7 +302,8 @@ class CRG_HW(CRG):
         a1 = simd_subxor_hw(a, a0, self.abe, self.width)
         b1 = simd_subxor_hw(b, b0, self.abe, self.width)
         if self.abe == 'a':
-            c  = simd_mul(a, b, self.width) # simd_mul_hw(a, b, self.abe,self.width)
+            ps, sc  = simd_muland_hw(a, b, self.abe, self.width)
+            c = simd_add_hw(ps, sc << 1, self.width)
         else:
             c = a & b
         c1 = simd_subxor_hw(c, c0, self.abe, self.width)
