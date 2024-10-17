@@ -71,14 +71,21 @@ def simd_muland_hw(x, y, mode, width):
     mask32 = bytes([0xff, 0xff, 0xff, 0xff])
     zeros_4 = bytes([0, 0, 0, 0])
     mask64, mask128, mask256 = zeros_4, zeros_4, zeros_4
-    if width == 64:
-        mask64, mask128, mask256 = mask32, zeros_4, zeros_4
-    elif width == 128:
-        mask64, mask128, mask256 = mask32, mask32, zeros_4
-    elif width == 256:
-        mask64, mask128, mask256 = mask32, mask32, mask32
+    if mode == 'b':
+        mask64, mask128, mask256 = mask32, mask32, mask32   ### 256
+    else:
+        if width == 64:
+            mask64, mask128, mask256 = mask32, zeros_4, zeros_4
+        elif width == 128:
+            mask64, mask128, mask256 = mask32, mask32, zeros_4
+        elif width == 256:
+            mask64, mask128, mask256 = mask32, mask32, mask32
     
-    y = split_int(y, 32, False)
+    is_a = 1 if mode == 'a' else 0
+    mask_in = 2**256-1
+    x_in = x & (y | (mask_in * is_a))
+    y_in = (y & (mask_in * is_a)) | (1 & (1 - is_a))
+    y_in = split_int(y_in, 32, False)
     masks = [
         mask256 + mask256 + mask256 + mask256 + mask128 + mask128 + mask64  + mask32,
         mask256 + mask256 + mask256 + mask256 + mask128 + mask128 + mask32  + mask64,
@@ -100,7 +107,7 @@ def simd_muland_hw(x, y, mode, width):
     acc_ps, acc_sc = 0, 0
     for i in range(8):
         mask = int.from_bytes(masks[i], 'big')
-        ps, sc = CSAMUL_256_32(x & mask, y[i])
+        ps, sc = CSAMUL_256_32(x_in & mask, y_in[i])
         ps <<= shifts[tab[width]][i]
         sc <<= shifts[tab[width]][i] + 1
         ps &= mask
@@ -156,7 +163,7 @@ def simd_add_hw(x, y, width):
         is64, is128, is256 = 1,1,1
 
     tab_carrychain = [is64, is128, is64, is256, is64, is128, is64]
-    
+
     ### CSA
     ps, sc = CSA_256(x, y, 0)
     sc <<= 1
@@ -209,11 +216,8 @@ class CRG_HW(CRG):
 
         a1 = simd_subxor_hw(a, a0, self.abe, self.width)
         b1 = simd_subxor_hw(b, b0, self.abe, self.width)
-        if self.abe == 'a':
-            ps, sc  = simd_muland_hw(a, b, self.abe, self.width)
-            c = simd_add_hw(ps, sc << 1, self.width)
-        else:
-            c = a & b
+        ps, sc  = simd_muland_hw(a, b, self.abe, self.width)
+        c = simd_add_hw(ps, sc << 1, self.width)
         c1 = simd_subxor_hw(c, c0, self.abe, self.width)
 
         self.n_stored_cr = self.cr_unit

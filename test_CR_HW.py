@@ -1,8 +1,10 @@
 import unittest, random
 from CR_HW import simd_subxor_hw, CSA_256, CSA_addsub_256, CRG_HW, simd_muland_hw, simd_add_hw, CSAMUL_256_32
 from CR import simd_sub, split_int, CRG, simd_mul
+import concurrent.futures
 
 N = 10000000
+JOBS = 8
 
 class CRG_HW_Test(unittest.TestCase):
 
@@ -11,6 +13,10 @@ class CRG_HW_Test(unittest.TestCase):
         cls.seed = 0
         cls.seed = random.randint(0,2**128-1)
         print(f'{cls.seed = }\n')
+
+    # @classmethod
+    # def tearDownClass(cls):
+    #     print(f'Completed {N} * {JOBS} random test cases')
 
     def test_CSAMUL_256_32(self):
             for _ in range(N):
