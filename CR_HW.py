@@ -173,7 +173,7 @@ def simd_add_hw(x, y, width):
 
     return adder_tree(list_ps_32, list_sc_32, tab_carrychain)
 
-def simd_subxor_hw(x, y, mode, width):
+def simd_subxor_hw(x, y, mode, width, extra_term = None):
     """ XOR or Subtruct x and y
     Args:
         x,y: Operational input
@@ -198,9 +198,13 @@ def simd_subxor_hw(x, y, mode, width):
     sc <<= 1
     sc &= (2**256-1) ^ make_carry_mask(width)
     sc = 0 if mode == 'b' else sc
+    if extra_term is not None:
+        ps, sc = CSA_256(ps, sc, extra_term)
+        sc <<= 1
+        sc &= (2**256-1) ^ make_carry_mask(width)
+        
     list_ps_32 = split_int(ps, 32, False)
     list_sc_32 = split_int(sc, 32, False)
-
 
     return adder_tree(list_ps_32, list_sc_32, tab_carrychain)
 
@@ -214,6 +218,17 @@ class CRG_HW(CRG):
         b0 = self.PRNG256_3.gen()
         c0 = self.PRNG256_4.gen()
 
+        ### Correlation calculation
+        mask = 0x0000000100000001000000010000000100000001000000010000000100000001 if self.width == 32 else 0x0000000000000001000000000000000100000000000000010000000000000001 if self.width == 64 else None
+        if self.abe == 'e':
+            a = a & mask
+        a1 = simd_subxor_hw(a, a0, self.abe, self.width)
+        b1 = simd_subxor_hw(b, b0, self.abe, self.width)
+        ps, sc  = simd_muland_hw(a, b, self.abe, self.width)
+        c = simd_add_hw(ps, sc << 1, self.width)    # Not necessary, but remains for debugging purposes
+        c1 = simd_subxor_hw(ps, c0, self.abe, self.width, sc << 1)
+
+        ### For extended triples
         if self.cnt_ext == 0:
             self.e0_raw = self.PRNG256_5.gen()
             self.cnt_ext = 10
@@ -222,22 +237,13 @@ class CRG_HW(CRG):
             self.e0_raw >>= 8
         e0 = self.e0_raw & 0xff
 
-        mask = 0x0000000100000001000000010000000100000001000000010000000100000001 if self.width == 32 else 0x0000000000000001000000000000000100000000000000010000000000000001 if self.width == 64 else None
-        if self.abe == 'e':
-            a = a & mask
-        a1 = simd_subxor_hw(a, a0, self.abe, self.width)
-        b1 = simd_subxor_hw(b, b0, self.abe, self.width)
-        ps, sc  = simd_muland_hw(a, b, self.abe, self.width)
-        c = simd_add_hw(ps, sc << 1, self.width)
-        c1 = simd_subxor_hw(c, c0, self.abe, self.width)
-
-        ### Extended
         e = 0
         for i in range(8):
             a_bit = (a >> (32 * i)) & 1
             e |= a_bit << i
         e1 = e ^ e0
 
+        ### Store
         self.stored_a0 = split_int(a0, self.width)
         self.stored_a1 = split_int(a1, self.width)
         self.stored_a  = split_int(a, self.width)
@@ -246,7 +252,7 @@ class CRG_HW(CRG):
         self.stored_b  = split_int(b, self.width)
         self.stored_c0 = split_int(c0, self.width)
         self.stored_c1 = split_int(c1, self.width)
-        self.stored_c  = split_int(c, self.width)
+        self.stored_c  = split_int(c, self.width)   # Not necessary, but remains for debugging purposes
 
         self.stored_e0 = list(map(int, bin(e0)[2:].zfill(8)))
         self.stored_e1 = list(map(int, bin(e1)[2:].zfill(8)))
