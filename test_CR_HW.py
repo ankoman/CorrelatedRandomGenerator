@@ -1,12 +1,13 @@
 import unittest, random
 from CR_HW import simd_subxor_hw, CSA_256, CSA_addsub_256, CRG_HW, simd_muland_hw, simd_add_hw, CSAMUL_256_32
 from CR import simd_sub, split_int, CRG, simd_mul
+from test_CR import CRGTest
 import concurrent.futures
 
 N = 10000000
 JOBS = 8
 
-class CRG_HW_Test(unittest.TestCase):
+class CRG_HW_Test(CRGTest):
 
     @classmethod
     def setUpClass(cls):
@@ -99,3 +100,18 @@ class CRG_HW_Test(unittest.TestCase):
 
     def test_b256(self):
         self.crg_mode_test_N('b256')
+
+
+    def test_e32(self):
+        crg_0 = CRG_HW(self.seed, 0, 'e32')
+        crg_1 = CRG_HW(self.seed, 1, 'e32')
+
+        for i in range(N):
+            self.ext_test(crg_0, crg_1, 32)
+
+    def test_e64(self):
+        crg_0 = CRG_HW(self.seed, 0, 'e64')
+        crg_1 = CRG_HW(self.seed, 1, 'e64')
+
+        for _ in range(N):
+            self.ext_test(crg_0, crg_1, 64)

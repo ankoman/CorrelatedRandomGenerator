@@ -82,10 +82,11 @@ class CRG:
     stored_c0 = []
     stored_c1 = []
     stored_c  = []
-    stored_a0_B = []
-    stored_a1_B = []
+    stored_e0 = []
+    stored_e1 = []
     n_stored_cr = 0
     party = 0
+    cnt_ext = 0
     abe = None
     width = None
     cr_unit = None
@@ -108,6 +109,8 @@ class CRG:
         self.PRNG256_2 = PRNG_256(key, 2)
         self.PRNG256_3 = PRNG_256(key, 3)
         self.PRNG256_4 = PRNG_256(key, 4)
+        self.PRNG256_5 = PRNG_256(key, 5)
+
             
     def get_cr(self):
         """
@@ -121,13 +124,13 @@ class CRG:
         if self.party == 0:
             retval = self.stored_a0.pop(0), self.stored_b0.pop(0), self.stored_c0.pop(0)
             if self.abe == 'e':
-                return retval + (self.stored_a0_B.pop(0),)
+                return retval + (self.stored_e0.pop(0),)
             else:
                 return retval
         elif self.party == 1:
             retval = self.stored_a1.pop(0), self.stored_b1.pop(0), self.stored_c1.pop(0)
             if self.abe == 'e':
-                return retval + (self.stored_a1_B.pop(0),)
+                return retval + (self.stored_e1.pop(0),)
             else:
                 return retval
 
@@ -164,7 +167,7 @@ class CRG:
             c1 = simd_sub(c, c0, self.width)
         elif self.abe == 'e':
             ### Extended
-            mask = 0x0000000100000001000000010000000100000001000000010000000100000001 if self.width == 32 else 0x10000000000000001000000000000000100000000000000010000000000000001 if self.width == 64 else None
+            mask = 0x0000000100000001000000010000000100000001000000010000000100000001 if self.width == 32 else 0x0000000000000001000000000000000100000000000000010000000000000001 if self.width == 64 else None
             a = a & mask
 
             tmp_a_B = 0
@@ -195,11 +198,11 @@ class CRG:
         self.stored_c1 = split_int(c1, self.width)
         self.stored_c  = split_int(c, self.width)
 
-        self.stored_a0_B = list(map(int, bin(self.stored_a0[-1] & 0x7f)[2:].zfill(7)))
-        self.stored_a1_B = list(map(int, bin(self.stored_a1[-1] & 0x7f)[2:].zfill(7)))
+        self.stored_e0 = list(map(int, bin(self.stored_a0[-1] & 0x7f)[2:].zfill(7)))
+        self.stored_e1 = list(map(int, bin(self.stored_a1[-1] & 0x7f)[2:].zfill(7)))
         if self.width == 64:
-            self.stored_a0_B = [self.stored_a0_B[1], self.stored_a0_B[3], self.stored_a0_B[5]]
-            self.stored_a1_B = [self.stored_a1_B[1], self.stored_a1_B[3], self.stored_a1_B[5]]
+            self.stored_e0 = [self.stored_e0[1], self.stored_e0[3], self.stored_e0[5]]
+            self.stored_e1 = [self.stored_e1[1], self.stored_e1[3], self.stored_e1[5]]
 
 def main(cr_mode, n_cr = 1, party = 0):
     """

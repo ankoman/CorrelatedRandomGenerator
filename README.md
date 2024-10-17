@@ -1,6 +1,7 @@
 # Usage
 ```
 python3 -m unittest
+```
 
 # 未実施部分
 - PRNG256をちゃんとしたやつに
@@ -9,6 +10,6 @@ python3 -m unittest
 - 上位桁から出力している部分
 - ビットスライス実装
 - 128bitデータパス
-- extended用のラウンド実装PRNG
+- ~~extended用のラウンド実装PRNG~~
 - c1減算をmulandへ取り込み
-- extended実装
+- ~~extended実装~~
