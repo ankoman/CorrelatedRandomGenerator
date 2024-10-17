@@ -116,6 +116,29 @@ def simd_muland_hw(x, y, mode, width):
     acc_sc &= ((2**256-1) ^ make_carry_mask(width) >> 1)
     return acc_ps, acc_sc
 
+def adder_tree(list_ps_32, list_sc_32, tab_carrychain):
+
+    ### First stage adder
+    list_sum = [0] * 8
+    list_cy = [0] * 8
+    for i in range(8):
+        list_sum[i], list_cy[i] = ADD_32(list_ps_32[i], list_sc_32[i], 0)
+
+    ### Second to eigth stage adder
+    prev_cy = 0
+    for i in range(7):
+        sum, cy = ADD_32(list_sum[i+1], 0, (list_cy[i] | prev_cy) & tab_carrychain[i])
+        prev_cy = list_cy[i+1]
+        list_sum[i+1] = sum
+        list_cy[i+1] = cy
+
+    ret = 0
+    for i in range(8):
+        ret <<= 32
+        ret |= list_sum[7-i]
+    
+    return ret
+
 def simd_add_hw(x, y, width):
     """ Add x and y
     Args:
@@ -132,6 +155,8 @@ def simd_add_hw(x, y, width):
     elif width == 256:
         is64, is128, is256 = 1,1,1
 
+    tab_carrychain = [is64, is128, is64, is256, is64, is128, is64]
+    
     ### CSA
     ps, sc = CSA_256(x, y, 0)
     sc <<= 1
@@ -139,67 +164,7 @@ def simd_add_hw(x, y, width):
     list_ps_32 = split_int(ps, 32, False)
     list_sc_32 = split_int(sc, 32, False)
 
-    ### First stage adder
-    list_sum_1 = [0] * 8
-    list_cy_1 = [0] * 8
-    for i in range(8):
-        list_sum_1[i], list_cy_1[i] = ADD_32(list_ps_32[i], list_sc_32[i], 0)
-
-    ### Second stage
-    list_sum_2 = list_sum_1.copy()
-    list_cy_2 = list_cy_1.copy()
-    sum, cy = ADD_32(list_sum_1[1], 0, list_cy_1[0] & is64)
-    list_sum_2[1] = sum
-    list_cy_2[1] = cy
-
-    ### Third stage
-    list_sum_3 = list_sum_2.copy()
-    list_cy_3 = list_cy_2.copy()
-    sum, cy = ADD_32(list_sum_2[2], 0, (list_cy_2[1] | list_cy_1[1]) & is128)
-    list_sum_3[2] = sum
-    list_cy_3[2] = cy
-
-    ### Fourth stage
-    list_sum_4 = list_sum_3.copy()
-    list_cy_4 = list_cy_3.copy()
-    sum, cy = ADD_32(list_sum_3[3], 0, (list_cy_3[2] | list_cy_2[2]) & is64)
-    list_sum_4[3] = sum
-    list_cy_4[3] = cy
-
-    ### Fifth stage
-    list_sum_5 = list_sum_4.copy()
-    list_cy_5 = list_cy_4.copy()
-    sum, cy = ADD_32(list_sum_4[4], 0, (list_cy_4[3] | list_cy_3[3]) & is256)
-    list_sum_5[4] = sum
-    list_cy_5[4] = cy
-
-    ### Sixth stage
-    list_sum_6 = list_sum_5.copy()
-    list_cy_6 = list_cy_5.copy()
-    sum, cy = ADD_32(list_sum_5[5], 0, (list_cy_5[4] | list_cy_4[4]) & is64)
-    list_sum_6[5] = sum
-    list_cy_6[5] = cy
-
-    ### Sevnth stage
-    list_sum_7 = list_sum_6.copy()
-    list_cy_7 = list_cy_6.copy()
-    sum, cy = ADD_32(list_sum_6[6], 0, (list_cy_6[5] | list_cy_5[5]) & is128)
-    list_sum_7[6] = sum
-    list_cy_7[6] = cy
-
-    ### Eigth stage
-    list_sum_8 = list_sum_7.copy()
-    list_cy_8 = list_cy_7.copy()
-    sum, cy = ADD_32(list_sum_7[7], 0, (list_cy_7[6] | list_cy_6[6]) & is64)
-    list_sum_8[7] = sum
-    list_cy_8[7] = cy
-
-    ret = 0
-    for i in range(8):
-        ret <<= 32
-        ret |= list_sum_8[7-i]
-
-    return ret
+    return adder_tree(list_ps_32, list_sc_32, tab_carrychain)
 
 def simd_subxor_hw(x, y, mode, width):
     """ XOR or Subtruct x and y
@@ -218,6 +183,8 @@ def simd_subxor_hw(x, y, mode, width):
     elif width == 256:
         is64, is128, is256 = 1,1,1
 
+    tab_carrychain = [is64, is128, is64, is256, is64, is128, is64]
+
     ### CSA
     sub = 1 if mode == 'a' else 0
     ps, sc = CSA_addsub_256(x, y, sub, width)
@@ -227,67 +194,8 @@ def simd_subxor_hw(x, y, mode, width):
     list_ps_32 = split_int(ps, 32, False)
     list_sc_32 = split_int(sc, 32, False)
 
-    ### First stage adder
-    list_sum_1 = [0] * 8
-    list_cy_1 = [0] * 8
-    for i in range(8):
-        list_sum_1[i], list_cy_1[i] = ADD_32(list_ps_32[i], list_sc_32[i], 0)
 
-    ### Second stage
-    list_sum_2 = list_sum_1.copy()
-    list_cy_2 = list_cy_1.copy()
-    sum, cy = ADD_32(list_sum_1[1], 0, list_cy_1[0] & is64)
-    list_sum_2[1] = sum
-    list_cy_2[1] = cy
-
-    ### Third stage
-    list_sum_3 = list_sum_2.copy()
-    list_cy_3 = list_cy_2.copy()
-    sum, cy = ADD_32(list_sum_2[2], 0, (list_cy_2[1] | list_cy_1[1]) & is128)
-    list_sum_3[2] = sum
-    list_cy_3[2] = cy
-
-    ### Fourth stage
-    list_sum_4 = list_sum_3.copy()
-    list_cy_4 = list_cy_3.copy()
-    sum, cy = ADD_32(list_sum_3[3], 0, (list_cy_3[2] | list_cy_2[2]) & is64)
-    list_sum_4[3] = sum
-    list_cy_4[3] = cy
-
-    ### Fifth stage
-    list_sum_5 = list_sum_4.copy()
-    list_cy_5 = list_cy_4.copy()
-    sum, cy = ADD_32(list_sum_4[4], 0, (list_cy_4[3] | list_cy_3[3]) & is256)
-    list_sum_5[4] = sum
-    list_cy_5[4] = cy
-
-    ### Sixth stage
-    list_sum_6 = list_sum_5.copy()
-    list_cy_6 = list_cy_5.copy()
-    sum, cy = ADD_32(list_sum_5[5], 0, (list_cy_5[4] | list_cy_4[4]) & is64)
-    list_sum_6[5] = sum
-    list_cy_6[5] = cy
-
-    ### Sevnth stage
-    list_sum_7 = list_sum_6.copy()
-    list_cy_7 = list_cy_6.copy()
-    sum, cy = ADD_32(list_sum_6[6], 0, (list_cy_6[5] | list_cy_5[5]) & is128)
-    list_sum_7[6] = sum
-    list_cy_7[6] = cy
-
-    ### Eigth stage
-    list_sum_8 = list_sum_7.copy()
-    list_cy_8 = list_cy_7.copy()
-    sum, cy = ADD_32(list_sum_7[7], 0, (list_cy_7[6] | list_cy_6[6]) & is64)
-    list_sum_8[7] = sum
-    list_cy_8[7] = cy
-
-    ret = 0
-    for i in range(8):
-        ret <<= 32
-        ret |= list_sum_8[7-i]
-
-    return ret
+    return adder_tree(list_ps_32, list_sc_32, tab_carrychain)
 
 class CRG_HW(CRG):
     
