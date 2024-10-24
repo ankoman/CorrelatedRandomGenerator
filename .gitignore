@@ -1,7 +1,5 @@
 *
-!CR.py
-!CR_HW.py
-!test_CR.py
-!test_CR_HW.py
 !.gitignore
 !README.md
+!/script/
+!*.py
