@@ -2,4 +2,8 @@
 !.gitignore
 !README.md
 !/script/
+!/src/
+!/const/
 !*.py
+!*.sv
+!*.xdc
