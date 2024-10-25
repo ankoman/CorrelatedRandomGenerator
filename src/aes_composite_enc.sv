@@ -29,6 +29,94 @@
  (http://www.risec.aist.go.jp/project/sasebo/)
  -------------------------------------------------------------------------*/
 
+`timescale 1ns / 1ps
+//////////////////////////////////////////////////////////////////////////////////
+// Company: AIST
+// Engineer: Junichi Sakamoto
+// 
+// Create Date: 2024/10/26
+// Module Name: aes_Composite_enc_pipeline
+// Tool Versions: Vivado 2020.1
+//////////////////////////////////////////////////////////////////////////////////
+//================================================ AES_Composite_enc
+module AES_Composite_enc_pipeline
+  (Kin, Din, Dout, Drdy, Dvld, EN, CLK, RSTn);
+
+   //------------------------------------------------
+   input  [127:0] Kin;  // Key input
+   input [127:0]  Din;  // Data input
+   output [127:0] Dout; // Data output
+   input          Drdy; // Data input ready
+   output         Dvld; // Data output valid
+
+   input          EN;   // AES circuit enable
+   input          CLK;  // System clock
+   input          RSTn; // Reset (Low active)
+
+   //------------------------------------------------
+   reg [127:0]    dat, key, rkey;
+   wire [127:0]   dat_next, rkey_next;
+   reg [7:0]      rcon; 
+   reg            Dvld;
+   wire           rst;
+
+   logic [9:0][127:0] state;
+   
+   //------------------------------------------------
+   assign rst = ~RSTn;
+   assign state[0] = 
+     
+   always @(posedge CLK) begin
+      if (rst)     Dvld <= 0;
+      else if (EN) Dvld <= ;
+   end
+
+   for (genvar i = 0; i < 10; i = i + 1) begin : AES_ROUND
+      AES_Core aes_core 
+      (.din(dat),  .dout(dat_next),  .kin(rkey_next), .sel(sel));
+      KeyExpantion keyexpantion 
+      (.kin(rkey), .kout(rkey_next), .rcon(rcon));
+   end
+   
+   always @(posedge CLK) begin
+      if (rst)                 dat <= 128'h0;
+      else if (EN) begin
+         if (Drdy)             dat <= Din ^ key;
+         else if (~rnd[0]|sel) dat <= dat_next;
+      end
+   end
+   assign Dout = dat;
+   
+   always @(posedge CLK) begin
+      if (rst)     key <= 128'h0;
+      else if (EN)
+        if (Krdy)  key <= Kin;
+   end
+
+   always @(posedge CLK) begin
+      if (rst)         rkey <= 128'h0;
+      else if (EN) begin
+         if (Krdy)   rkey <= Kin;
+         else if (rnd[0]) rkey <= key;
+         else             rkey <= rkey_next;
+      end
+   end
+   
+   always @(posedge CLK) begin
+     if (rst)          rcon <= 8'h01;
+     else if (EN) begin
+        if (Drdy)    rcon <= 8'h01;
+        else if (~rnd[0]) rcon <= xtime(rcon);
+     end
+   end
+   
+   function [7:0] xtime;
+      input [7:0] x;
+      xtime = (x[7]==1'b0)? {x[6:0],1'b0} : {x[6:0],1'b0} ^ 8'h1B;
+   endfunction
+
+endmodule // AES_Composite_enc
+
 
 //================================================ AES_Composite_enc
 module AES_Composite_enc

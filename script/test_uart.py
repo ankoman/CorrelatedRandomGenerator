@@ -53,7 +53,7 @@ def main():
             for loop in range(10):
                 # print('\nLoop: %d' %loop)
                                 
-                key = random.randint(0, 2**128-1)
+                key = 123
                 aes0 = AES.new(key.to_bytes(16, 'big'), AES.MODE_ECB)
                 aes1 = AES.new((key+1).to_bytes(16, 'big'), AES.MODE_ECB)
                 aes2 = AES.new((key+2).to_bytes(16, 'big'), AES.MODE_ECB)

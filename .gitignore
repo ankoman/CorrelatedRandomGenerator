@@ -4,6 +4,7 @@
 !/script/
 !/src/
 !/const/
+!/sim/
 !*.py
 !*.sv
 !*.xdc
