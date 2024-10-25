@@ -20,7 +20,10 @@
 //////////////////////////////////////////////////////////////////////////////////
 
 
-import PARAM_UART::*;
+//import PARAM_UART::*;
+
+parameter   UART_CLK_FREQ = 100000000,
+            UART_BAUD_RATE = 115200;
 
 module UART_BYTE(
     input clk,

@@ -4,33 +4,22 @@
 // Engineer: Junichi Sakamoto
 // 
 // Create Date: 2022/10/31 10:23:27
-// Design Name: 
+// Modified   : 2024/10/25
 // Module Name: UART_CTRL
-// Project Name: 
-// Target Devices: 
-// Tool Versions: 
-// Description: 
-// 
-// Dependencies: 
-// 
-// Revision:
-// Revision 0.01 - File Created
-// Additional Comments:
-// 
 //////////////////////////////////////////////////////////////////////////////////
 
 
-localparam len_din = 304;
-localparam len_dout = 304;
-
-module UART_CTRL(
+module UART_CTRL #(
+    parameter len_din = 0,
+    parameter len_dout = 0
+)(
     input clk,
     input rst_n,
     input uart_rx,
     output uart_tx,
     input [len_dout - 1:0] extout_data, //288
-    output reg [7:0] BRAM_addr_for_extin,
-    output reg [7:0] BRAM_addr_for_extout,
+    output reg [7:0] addr_extin,
+    output reg [7:0] addr_extout,
     output reg [len_din - 1:0] extin_data,
     output extin_en,
     output swrst,
@@ -81,8 +70,8 @@ module UART_CTRL(
         if(~rst_n) begin
             state <= 5'h0;
             command <= 8'h0;
-            BRAM_addr_for_extin <= 8'h0;
-            BRAM_addr_for_extout <= 8'h0;
+            addr_extin <= 8'h0;
+            addr_extout <= 8'h0;
             shiftreg_swrst <= 2'b0;
             shiftreg_run <= 2'b0;
         end
@@ -112,11 +101,11 @@ module UART_CTRL(
             else if(state == WAIT_ADDR) begin
                if(rx_data_en) begin
                     if(command == COM_WRITE) begin
-                        BRAM_addr_for_extin <= rx_data;
+                        addr_extin <= rx_data;
                         state <= EXTIN;
                     end
                     else if (command == COM_READ) begin
-                        BRAM_addr_for_extout <= rx_data;
+                        addr_extout <= rx_data;
                         state <= EXTOUT_WAIT_RAM;
                     end
                 end
