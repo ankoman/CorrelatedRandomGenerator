@@ -12,7 +12,6 @@
 from serial import Serial
 import random, time, subprocess
 import Crypto.Cipher.AES as AES
-import pickle
 
 len_din = 256//8
 len_dout = 768//8
@@ -54,15 +53,31 @@ def main():
             for loop in range(10):
                 # print('\nLoop: %d' %loop)
                                 
-                din = random.randint(0, 2**256-1)
-                print(f'{din = :x}')
+                key = random.randint(0, 2**128-1)
+                aes0 = AES.new(key.to_bytes(16, 'big'), AES.MODE_ECB)
+                aes1 = AES.new((key+1).to_bytes(16, 'big'), AES.MODE_ECB)
+                aes2 = AES.new((key+2).to_bytes(16, 'big'), AES.MODE_ECB)
+
+                print(f'{key = :x}')
                 #入力
-                sendCommand(WRITE, 0x00, din, com)
+                sendCommand(WRITE, 0x00, key, com)
+
                 #RUN
                 sendCommand(RUN, None, None, com)
+
                 #出力
                 res = getResult(0x00, com)
                 print(f'{res = :x}')
+
+                ans = aes0.encrypt((0).to_bytes(16, 'big'))
+                ans = int.from_bytes(ans, 'big')
+                print(f'{ans = :x}')
+                ans = aes1.encrypt((0).to_bytes(16, 'big'))
+                ans = int.from_bytes(ans, 'big')
+                print(f'{ans = :x}')
+                ans = aes2.encrypt((0).to_bytes(16, 'big'))
+                ans = int.from_bytes(ans, 'big')
+                print(f'{ans = :x}')
 
 if __name__ == '__main__':
     start = time.time()

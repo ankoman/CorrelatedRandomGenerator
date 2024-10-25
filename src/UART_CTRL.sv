@@ -17,7 +17,7 @@ module UART_CTRL #(
     input rst_n,
     input uart_rx,
     output uart_tx,
-    input [len_dout - 1:0] extout_data, //288
+    input [len_dout - 1:0] extout_data,
     output reg [7:0] addr_extin,
     output reg [7:0] addr_extout,
     output reg [len_din - 1:0] extin_data,
