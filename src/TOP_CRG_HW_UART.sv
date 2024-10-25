@@ -25,17 +25,30 @@ module TOP_CRG_HW_UART(
     wire rst_n = ck_rst_n;
     wire run, extin_en;
     wire [7:0] addr_extin, addr_extout;
-    logic [len_din - 1:0] extin_data;
+    logic [len_din - 1:0] reg_extin_data, extin_data;
+
+    assign led = reg_extin_data[3:0];
 
     UART_CTRL #(.len_din(len_din), .len_dout(len_dout)) uart_ctrl (
+        .clk,
+        .rst_n,
         .uart_rx(uart_txd_in),
         .uart_tx(uart_rxd_out),
-        .extout_data({500'd0, 12'h58f, extin_data}),
+        .extout_data({12'h58f, 500'd0, reg_extin_data}),
         .addr_extin,
         .addr_extout,
         .extin_data,
         .extin_en,
         .run
     );
+
+    always @(posedge clk) begin
+        if(!rst_n) begin
+            reg_extin_data <= '0;
+        end
+        else if(extin_en) begin
+            reg_extin_data <= extin_data;
+        end
+    end
 
 endmodule

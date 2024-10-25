@@ -48,28 +48,21 @@ def getResult(addr, com):
     str = com.read(len_dout).hex()
     return int(str, 16)
 
-def print_wrong_byte(res, ans):
-    res = res.to_bytes(16, 'big')
-    ans = ans.to_bytes(16, 'big')
-    
-    for i in range(16):
-        if res[i] != ans[i]:
-            print(f'{i}, ', end='')
-    print('')
-
 def main():
     random.seed(0)
     with Serial(port="COM4",baudrate=115200,bytesize=8, parity="N", stopbits=1, timeout=3, xonxoff=0, rtscts=0, writeTimeout=3, dsrdtr=None) as com:
             for loop in range(10):
                 # print('\nLoop: %d' %loop)
                                 
-                din = random.randint(2**256-1)
+                din = random.randint(0, 2**256-1)
+                print(f'{din = :x}')
                 #入力
                 sendCommand(WRITE, 0x00, din, com)
                 #RUN
                 sendCommand(RUN, None, None, com)
                 #出力
                 res = getResult(0x00, com)
+                print(f'{res = :x}')
 
 if __name__ == '__main__':
     start = time.time()
