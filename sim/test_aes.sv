@@ -70,7 +70,7 @@ module test_aes;
         #100
         rst_n <= 1;
         #1000;
-        key <= 128'd123;
+        key <= 128'h2b7e151628aed2a6abf7158809cf4f3c;
         din <= 128'd0;
         run <= 1'b1;
         #CYCLE

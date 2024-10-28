@@ -55,30 +55,31 @@ module AES_Composite_enc_pipeline
    //------------------------------------------------
    wire           rst;
 
-   logic [9:0][127:0] w_state, r_state, w_rkey, r_rkey;
-   logic [9:0] sr_dvld;
+   logic [9:0][127:0] r_state, w_rkey, r_rkey;
+   logic [10:0][127:0] w_state;
+   logic [10:0] sr_dvld;
 
    
    //------------------------------------------------
    assign rst = ~RSTn;
    assign w_state[0] = Din ^ Kin;
-   assign Dout = w_state[9];
+   assign Dout = w_state[10];
    assign sr_dvld[0] = Drdy;
-   assign Dvld = sr_dvld[9];
+   assign Dvld = sr_dvld[10];
 
    always @(posedge CLK) begin : shift_reg_dvld
       if (rst) sr_dvld <= '0;
-      else sr_dvld[9:1] <= sr_dvld[8:0];
+      else sr_dvld[10:1] <= sr_dvld[9:0];
    end
 
    for (genvar i = 0; i < 10; i = i + 1) begin : AES_ROUND
       AES_Core aes_core 
-      (.din(r_state[i]),  .dout(w_state[i+1]),  .kin(r_rkey[i]), .sel( (i == 9) ? 1 : 0));
+      (.din(r_state[i]), .dout(w_state[i+1]),  .kin(r_rkey[i]), .sel( (i == 9) ? 1 : 0));
       KeyExpantion keyexpantion 
-      (.kin((i == 0) ? Kin : r_rkey[i-1]), .kout(w_rkey[i]), .rcon(rcon(i)));
+      (.kin((i == 0) ? Kin : r_rkey[i-1]), .kout(w_rkey[i]), .rcon(rcon(i+1)));
    end
 
-   for (genvar i = 1; i < 10; i = i + 1) begin : STATE_REG_RKEY_REG
+   for (genvar i = 0; i < 10; i = i + 1) begin : STATE_REG_RKEY_REG
       always @(posedge CLK) begin
          if (rst) begin
             r_state[i] <= '0;
@@ -105,6 +106,7 @@ module AES_Composite_enc_pipeline
          8'h07: rcon = 8'h40;
          8'h08: rcon = 8'h80;
          8'h09: rcon = 8'h1b;
+         8'h0a: rcon = 8'h36;
          default: rcon = 8'hxx;
       endcase
       end
