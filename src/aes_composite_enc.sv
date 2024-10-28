@@ -40,7 +40,7 @@
 //////////////////////////////////////////////////////////////////////////////////
 //================================================ AES_Composite_enc
 module AES_Composite_enc_pipeline
-  (Kin, Din, Dout, Drdy, Dvld, EN, CLK, RSTn);
+  (Kin, Din, Dout, Drdy, Dvld, CLK, RSTn);
 
    //------------------------------------------------
    input  [127:0] Kin;  // Key input
@@ -49,70 +49,65 @@ module AES_Composite_enc_pipeline
    input          Drdy; // Data input ready
    output         Dvld; // Data output valid
 
-   input          EN;   // AES circuit enable
    input          CLK;  // System clock
    input          RSTn; // Reset (Low active)
 
    //------------------------------------------------
-   reg [127:0]    dat, key, rkey;
-   wire [127:0]   dat_next, rkey_next;
-   reg [7:0]      rcon; 
-   reg            Dvld;
    wire           rst;
 
-   logic [9:0][127:0] state;
+   logic [9:0][127:0] w_state, r_state, w_rkey, r_rkey;
+   logic [9:0] sr_dvld;
+
    
    //------------------------------------------------
    assign rst = ~RSTn;
-   assign state[0] = 
-     
-   always @(posedge CLK) begin
-      if (rst)     Dvld <= 0;
-      else if (EN) Dvld <= ;
+   assign w_state[0] = Din ^ Kin;
+   assign Dout = w_state[9];
+   assign sr_dvld[0] = Drdy;
+   assign Dvld = sr_dvld[9];
+
+   always @(posedge CLK) begin : shift_reg_dvld
+      if (rst) sr_dvld <= '0;
+      else sr_dvld[9:1] <= sr_dvld[8:0];
    end
 
    for (genvar i = 0; i < 10; i = i + 1) begin : AES_ROUND
       AES_Core aes_core 
-      (.din(dat),  .dout(dat_next),  .kin(rkey_next), .sel(sel));
+      (.din(r_state[i]),  .dout(w_state[i+1]),  .kin(r_rkey[i]), .sel( (i == 9) ? 1 : 0));
       KeyExpantion keyexpantion 
-      (.kin(rkey), .kout(rkey_next), .rcon(rcon));
-   end
-   
-   always @(posedge CLK) begin
-      if (rst)                 dat <= 128'h0;
-      else if (EN) begin
-         if (Drdy)             dat <= Din ^ key;
-         else if (~rnd[0]|sel) dat <= dat_next;
-      end
-   end
-   assign Dout = dat;
-   
-   always @(posedge CLK) begin
-      if (rst)     key <= 128'h0;
-      else if (EN)
-        if (Krdy)  key <= Kin;
+      (.kin((i == 0) ? Kin : r_rkey[i-1]), .kout(w_rkey[i]), .rcon(rcon(i)));
    end
 
-   always @(posedge CLK) begin
-      if (rst)         rkey <= 128'h0;
-      else if (EN) begin
-         if (Krdy)   rkey <= Kin;
-         else if (rnd[0]) rkey <= key;
-         else             rkey <= rkey_next;
+   for (genvar i = 1; i < 10; i = i + 1) begin : STATE_REG_RKEY_REG
+      always @(posedge CLK) begin
+         if (rst) begin
+            r_state[i] <= '0;
+            r_rkey[i] <= '0;
+         end
+         else begin
+            r_state[i] <= w_state[i];
+            r_rkey[i] <= w_rkey[i];
+         end
       end
    end
    
-   always @(posedge CLK) begin
-     if (rst)          rcon <= 8'h01;
-     else if (EN) begin
-        if (Drdy)    rcon <= 8'h01;
-        else if (~rnd[0]) rcon <= xtime(rcon);
-     end
-   end
-   
-   function [7:0] xtime;
+   function [7:0] rcon;
       input [7:0] x;
-      xtime = (x[7]==1'b0)? {x[6:0],1'b0} : {x[6:0],1'b0} ^ 8'h1B;
+      begin
+      case(x)
+         8'h00: rcon = 8'h00;
+         8'h01: rcon = 8'h01;
+         8'h02: rcon = 8'h02;
+         8'h03: rcon = 8'h04;
+         8'h04: rcon = 8'h08;
+         8'h05: rcon = 8'h10;
+         8'h06: rcon = 8'h20;
+         8'h07: rcon = 8'h40;
+         8'h08: rcon = 8'h80;
+         8'h09: rcon = 8'h1b;
+         default: rcon = 8'hxx;
+      endcase
+      end
    endfunction
 
 endmodule // AES_Composite_enc

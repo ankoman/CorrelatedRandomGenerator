@@ -32,16 +32,26 @@ module test_aes;
     //         cycle_cnt <= cycle_cnt + 1'b1;
     // end
 
-    AES_Composite_enc aes0(
+    // AES_Composite_enc aes0(
+    //     .Kin(key),
+    //     .Din(din),
+    //     .Dout(aes_out0),
+    //     .Krdy(run),
+    //     .Drdy(run_d),
+    //     .Kvld(),
+    //     .Dvld(),
+    //     .EN(1'b1),
+    //     .BSY(),
+    //     .CLK(clk),
+    //     .RSTn(rst_n)
+    // );
+
+    AES_Composite_enc_pipeline aes0(
         .Kin(key),
         .Din(din),
         .Dout(aes_out0),
-        .Krdy(run),
-        .Drdy(run_d),
-        .Kvld(),
+        .Drdy(run),
         .Dvld(),
-        .EN(1'b1),
-        .BSY(),
         .CLK(clk),
         .RSTn(rst_n)
     );
