@@ -13,8 +13,8 @@ from serial import Serial
 import random, time, subprocess
 import Crypto.Cipher.AES as AES
 
-len_din = 256//8
-len_dout = 768//8
+len_din = 128//8
+len_dout = 128//8
 
 #######################################################################################
 ######################################Commands#########################################
@@ -50,34 +50,24 @@ def getResult(addr, com):
 def main():
     random.seed(0)
     with Serial(port="COM4",baudrate=115200,bytesize=8, parity="N", stopbits=1, timeout=3, xonxoff=0, rtscts=0, writeTimeout=3, dsrdtr=None) as com:
-            for loop in range(10):
-                # print('\nLoop: %d' %loop)
-                                
-                key = 123
-                aes0 = AES.new(key.to_bytes(16, 'big'), AES.MODE_ECB)
-                aes1 = AES.new((key+1).to_bytes(16, 'big'), AES.MODE_ECB)
-                aes2 = AES.new((key+2).to_bytes(16, 'big'), AES.MODE_ECB)
+        # print('\nLoop: %d' %loop)
+                        
+        key = 0x2b7e151628aed2a6abf7158809cf4f3c
+        aes0 = AES.new(key.to_bytes(16, 'big'), AES.MODE_ECB)
 
-                print(f'{key = :x}')
-                #入力
-                sendCommand(WRITE, 0x00, key, com)
+        #入力
+        sendCommand(WRITE, 0x00, key, com)
 
-                #RUN
-                sendCommand(RUN, None, None, com)
+        for loop in range(256):
+            #RUN
+            sendCommand(RUN, None, None, com)
+            #出力
+            res = getResult(loop, com)
+            print(f'{res = :x}')
 
-                #出力
-                res = getResult(0x00, com)
-                print(f'{res = :x}')
-
-                ans = aes0.encrypt((0).to_bytes(16, 'big'))
-                ans = int.from_bytes(ans, 'big')
-                print(f'{ans = :x}')
-                ans = aes1.encrypt((0).to_bytes(16, 'big'))
-                ans = int.from_bytes(ans, 'big')
-                print(f'{ans = :x}')
-                ans = aes2.encrypt((0).to_bytes(16, 'big'))
-                ans = int.from_bytes(ans, 'big')
-                print(f'{ans = :x}')
+            ans = aes0.encrypt((0).to_bytes(16, 'big'))
+            ans = int.from_bytes(ans, 'big')
+            #print(f'{ans = :x}')
 
 if __name__ == '__main__':
     start = time.time()

@@ -67,30 +67,29 @@ module AES_Composite_enc_pipeline
    assign sr_dvld[0] = Drdy;
    assign Dvld = sr_dvld[10];
 
-   always @(posedge CLK) begin : shift_reg_dvld
-      if (rst) sr_dvld <= '0;
+   always_ff @(posedge CLK) begin : shift_reg_dvld
+      if (rst) sr_dvld[10:1] <= '0;
       else sr_dvld[10:1] <= sr_dvld[9:0];
    end
 
    for (genvar i = 0; i < 10; i = i + 1) begin : AES_ROUND
       AES_Core aes_core 
-      (.din(r_state[i]), .dout(w_state[i+1]),  .kin(r_rkey[i]), .sel( (i == 9) ? 1 : 0));
+      (.din(r_state[i]), .dout(w_state[i+1]), .kin(r_rkey[i]), .sel( (i == 9) ? 1 : 0));
       KeyExpantion keyexpantion 
       (.kin((i == 0) ? Kin : r_rkey[i-1]), .kout(w_rkey[i]), .rcon(rcon(i+1)));
    end
 
-   for (genvar i = 0; i < 10; i = i + 1) begin : STATE_REG_RKEY_REG
-      always @(posedge CLK) begin
-         if (rst) begin
-            r_state[i] <= '0;
-            r_rkey[i] <= '0;
-         end
-         else begin
-            r_state[i] <= w_state[i];
-            r_rkey[i] <= w_rkey[i];
-         end
+   always_ff @(posedge CLK) begin
+      if (rst) begin
+         r_state <= '0;
+         r_rkey <= '0;
+      end
+      else begin
+         r_state <= w_state[9:0];
+         r_rkey <= w_rkey;
       end
    end
+   
    
    function [7:0] rcon;
       input [7:0] x;

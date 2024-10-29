@@ -64,6 +64,7 @@ module test_aes;
         rst_n <= 1;
         #1000
         run <= 0;
+        run_d <= 0;
         rst_n <= 0;
         key <= '0;
         din <= '0;
@@ -73,11 +74,11 @@ module test_aes;
         key <= 128'h2b7e151628aed2a6abf7158809cf4f3c;
         din <= 128'd0;
         run <= 1'b1;
-        #CYCLE
-        run <= 1'b0;
-        run_d <= 1'b1;
-        #CYCLE
-        run_d <= 1'b0;
+        // #CYCLE
+        // din <= 128'd1;
+        // #CYCLE
+        // din <= 128'd2;
+        // #CYCLE
+        // run <= 1'b0;
     end
-
 endmodule
