@@ -59,13 +59,13 @@ class PRNG_256:
         n_prefix: The number to specify unique PRNG. 0 <= n_prefix <= 127.
         """
         ctr = Counter.new(64, prefix = (n_prefix << 56).to_bytes(8, 'big'), little_endian=False, initial_value=0)
-        self.PRNG_128_1 = AES.new(key=key, mode=AES.MODE_CTR , counter=ctr)
+        self.PRNG_128_0 = AES.new(key=key, mode=AES.MODE_CTR , counter=ctr)
         ctr = Counter.new(64, prefix = ((128 + n_prefix) << 56).to_bytes(8, 'big'), little_endian=False, initial_value=0)
-        self.PRNG_128_2 = AES.new(key=key, mode=AES.MODE_CTR , counter=ctr)
+        self.PRNG_128_1 = AES.new(key=key, mode=AES.MODE_CTR , counter=ctr)
 
     def gen(self, out_integer = True):
         zero_txt = bytes.fromhex("00000000000000000000000000000000")
-        rnd = self.PRNG_128_1.encrypt(zero_txt) + self.PRNG_128_2.encrypt(zero_txt)
+        rnd = self.PRNG_128_0.encrypt(zero_txt) + self.PRNG_128_1.encrypt(zero_txt)
         if out_integer:
             return int.from_bytes(rnd, 'big')
         else:

@@ -1,5 +1,5 @@
 from fire import Fire
-from CR import CRG, simd_sub, simd_mul, split_int
+from CR import CRG, simd_sub, simd_mul, split_int, PRNG_256
 
 def make_carry_mask(width):
     not64, not128, not256 = 1,1,1
@@ -12,7 +12,6 @@ def make_carry_mask(width):
 
     return (not64 << 224) + (not128 << 192) + (not64 << 160) + (not256 << 128) + (not64 << 96) + (not128 << 64) + (not64 << 32) 
     
-
 def CSA_256(a, b, c):
     ### Carry Save Adder
     mask = 2**256 - 1
@@ -273,7 +272,11 @@ def main(cr_mode, n_cr = 1, party = 0):
     """
 
     crg = CRG_HW(0, party, cr_mode)
-    print(crg.get_cr())
+
+    key = 0x2b7e151628aed2a6abf7158809cf4f3c
+    prng = PRNG_256(key.to_bytes(16, 'big'), 0)
+    for i in range(256):
+        print(hex(prng.gen()))
 
 if __name__ == "__main__":
     Fire(main)
