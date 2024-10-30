@@ -10,7 +10,9 @@
 //////////////////////////////////////////////////////////////////////////////////
 
 
-module TOP_CRG_HW_UART(
+module TOP_CRG_HW_UART
+    import TYPES::*;
+    (
     input   CLK100MHZ,
             ck_rst_n,
             uart_txd_in,
