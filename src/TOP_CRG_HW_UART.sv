@@ -17,7 +17,7 @@ module TOP_CRG_HW_UART
             ck_rst_n,
             uart_txd_in,
     output  uart_rxd_out,
-    [3:0]   led
+    output  [3:0]   led
     );
 
     localparam len_din = 128;

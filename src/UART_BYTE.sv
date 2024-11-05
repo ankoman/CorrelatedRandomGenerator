@@ -30,12 +30,12 @@ module UART_BYTE(
           rst_n,
           uart_rx,
           tx_data_en,
-    [7:0] tx_data,
+    input [7:0] tx_data,
     output tx_start,
-           reg rx_data_en,
-           reg uart_tx,
-           reg [7:0] rx_data,
-           reg tx_busy
+    output reg rx_data_en,
+    output reg uart_tx,
+    output reg [7:0] rx_data,
+    output reg tx_busy
     );
    
     localparam  BIT_WIDTH = UART_CLK_FREQ / UART_BAUD_RATE,

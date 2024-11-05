@@ -16,10 +16,10 @@ module simd_subxor
     (
     input           clk_i,
                     rst_n_i,
-            prng_t  x_i,
-            prng_t  y_i,
-            mode_t  mode_i,
-            width_t width_i,
+    input   prng_t  x_i,
+    input   prng_t  y_i,
+    input   mode_t  mode_i,
+    input   width_t width_i,
     output  prng_t  z_o
     );
 
@@ -35,15 +35,16 @@ module simd_subxor
         .sc_o(sc_1)
     );
 
-    prng_t ps_2, sc_2, mask;
+    prng_t ps_2, sc_2, sc_1_shift, mask;
     assign mask = {`LEN_PRNG{sub}};
-    assign sc_2 = `LEN_PRNG(sc_1 << 1) & !make_carry_mask(width_i) & mask;
+    assign sc_1_shift = {sc_1[`LEN_PRNG - 2:1], 1'b0};
+    assign sc_2 = sc_1_shift & !make_carry_mask(width_i) & mask;
 
     ///
     //Extra term
     ///
 
-    adder_tree
+    //adder_tree
 
 endmodule
 
@@ -53,11 +54,11 @@ module CSA_addsub
     import FUNCS:: make_carry_mask;
     (
     input   prng_t  x_i,
-            prng_t  y_i,
-            logic   sub_i,
-            width_t width_i,
+    input   prng_t  y_i,
+    input   logic   sub_i,
+    input   width_t width_i,
     output  prng_t  ps_o,
-            prng_t  sc_o
+    output  prng_t  sc_o
     );
 
     prng_t mask, y_inv, ones;
@@ -70,7 +71,7 @@ module CSA_addsub
         .b_i(y_inv),
         .c_i({ones[$bits(ones) - 1: 1], sub_i}),
         .ps_o,
-        .cs_o
+        .sc_o
     );
 
 endmodule

@@ -1,5 +1,4 @@
-
-`define LEN_PRNG 256;
+`define LEN_PRNG 256
 
 
 `ifndef TYPES
