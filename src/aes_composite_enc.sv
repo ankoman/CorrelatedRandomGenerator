@@ -74,7 +74,7 @@ module AES_Composite_enc_pipeline
 
    genvar i;
    generate
-      for (i = 0; i < 10; i = i + 1) begin : AES_ROUND
+      for (i = 0; i < 10; i = i + 1) begin : gen_AES_ROUND
          AES_Core aes_core 
          (.din(r_state[i]), .dout(w_state[i+1]), .kin(r_rkey[i]), .sel( (i == 9) ? 1'b1 : 1'b0));
          KeyExpantion keyexpantion 
@@ -94,7 +94,7 @@ module AES_Composite_enc_pipeline
    end
    
    
-   function [7:0] rcon;
+   function automatic [7:0] rcon;
       input [7:0] x;
       begin
       case(x)
@@ -212,7 +212,7 @@ module AES_Composite_enc
      end
    end
    
-   function [7:0] xtime;
+   function automatic [7:0] xtime;
       input [7:0] x;
       xtime = (x[7]==1'b0)? {x[6:0],1'b0} : {x[6:0],1'b0} ^ 8'h1B;
    endfunction
@@ -227,7 +227,7 @@ module KeyExpantion (kin, kout, rcon);
    //------------------------------------------------
    input [127:0]  kin;
    output [127:0] kout;
-   input [7:0] 	  rcon;
+   input [7:0]    rcon;
 
    //------------------------------------------------
    wire [31:0]    ws, wr, w0, w1, w2, w3;
@@ -325,7 +325,7 @@ module MixColumns(x, y);
    assign y[15: 8] = a0    ^ a1        ^b2 ^ a3^b3;
    assign y[ 7: 0] = a0^b0 ^ a1    ^ a2        ^b3;
   
-   function [7:0] xtime;
+   function automatic [7:0] xtime;
       input [7:0] x;
       xtime = (x[7]==1'b0)? {x[6:0],1'b0} : {x[6:0],1'b0} ^ 8'h1B;
    endfunction
@@ -342,7 +342,7 @@ module SubBytes (x, y);
    output [31:0] y;
 
    //------------------------------------------------
-   wire [31:0] 	s;
+   wire [31:0]   s;
 
    //------------------------------------------------
    GF_MULINV_8 u3 (.x(x[31:24]), .y(s[31:24]));
@@ -351,20 +351,20 @@ module SubBytes (x, y);
    GF_MULINV_8 u0 (.x(x[ 7: 0]), .y(s[ 7: 0]));
  
    assign y = {mat_at(s[31:24]), mat_at(s[23:16]), 
-	       mat_at(s[15: 8]), mat_at(s[ 7: 0])};
+          mat_at(s[15: 8]), mat_at(s[ 7: 0])};
     
    //------------------------------------------------ Affine matrix
-   function [7:0] mat_at;
+   function automatic [7:0] mat_at;
       input [7:0] x;
       begin
-	 mat_at[0] = ~(x[7] ^ x[6] ^ x[5] ^ x[4] ^ x[0]);
-	 mat_at[1] = ~(x[7] ^ x[6] ^ x[5] ^ x[1] ^ x[0]);
-	 mat_at[2] =   x[7] ^ x[6] ^ x[2] ^ x[1] ^ x[0];
-	 mat_at[3] =   x[7] ^ x[3] ^ x[2] ^ x[1] ^ x[0];
-	 mat_at[4] =   x[4] ^ x[3] ^ x[2] ^ x[1] ^ x[0];
-	 mat_at[5] = ~(x[5] ^ x[4] ^ x[3] ^ x[2] ^ x[1]);
-	 mat_at[6] = ~(x[6] ^ x[5] ^ x[4] ^ x[3] ^ x[2]);
-	 mat_at[7] =   x[7] ^ x[6] ^ x[5] ^ x[4] ^ x[3];
+    mat_at[0] = ~(x[7] ^ x[6] ^ x[5] ^ x[4] ^ x[0]);
+    mat_at[1] = ~(x[7] ^ x[6] ^ x[5] ^ x[1] ^ x[0]);
+    mat_at[2] =   x[7] ^ x[6] ^ x[2] ^ x[1] ^ x[0];
+    mat_at[3] =   x[7] ^ x[3] ^ x[2] ^ x[1] ^ x[0];
+    mat_at[4] =   x[4] ^ x[3] ^ x[2] ^ x[1] ^ x[0];
+    mat_at[5] = ~(x[5] ^ x[4] ^ x[3] ^ x[2] ^ x[1]);
+    mat_at[6] = ~(x[6] ^ x[5] ^ x[4] ^ x[3] ^ x[2]);
+    mat_at[7] =   x[7] ^ x[6] ^ x[5] ^ x[4] ^ x[3];
       end
    endfunction
 endmodule // SubBytes
@@ -390,8 +390,8 @@ module GF_MULINV_8 (x, y);
    output [7:0] y;
    
    //------------------------------------------------
-   wire [7:0] 	xt, yt;
-   wire [3:0] 	g1, g0, g1_g0, p, pi;
+   wire [7:0] xt, yt;
+   wire [3:0] g1, g0, g1_g0, p, pi;
    
    //------------------------------------------------
    // GF(2^8) -> GF(2^2^2) transform
@@ -409,39 +409,39 @@ module GF_MULINV_8 (x, y);
    
    // GF(2^2^2) -> GF(2^8) inverse transform
    assign y = mat_xi(yt);
-	     
+
    //------------------------------------------------ 
    // Isomorphism matrix (lambda = 4'b1100, phi = 2'b10)
-   function [7:0] mat_x;
+   function automatic [7:0] mat_x;
       input [7:0] x;
       begin
-	 mat_x[7] =  x[7]        ^ x[5];
-	 mat_x[6] =  x[7] ^ x[6]        ^ x[4] ^ x[3] ^ x[2] ^ x[1];
-	 mat_x[5] =  x[7]        ^ x[5]        ^ x[3] ^ x[2];
-	 mat_x[4] =  x[7]        ^ x[5]        ^ x[3] ^ x[2] ^ x[1];
-	 mat_x[3] =  x[7] ^ x[6]                      ^ x[2] ^ x[1];
-	 mat_x[2] =  x[7]               ^ x[4] ^ x[3] ^ x[2] ^ x[1];
-	 mat_x[1] =         x[6]        ^ x[4]               ^ x[1];
-	 mat_x[0] =         x[6]                             ^ x[1] ^ x[0];
+    mat_x[7] =  x[7]        ^ x[5];
+    mat_x[6] =  x[7] ^ x[6]        ^ x[4] ^ x[3] ^ x[2] ^ x[1];
+    mat_x[5] =  x[7]        ^ x[5]        ^ x[3] ^ x[2];
+    mat_x[4] =  x[7]        ^ x[5]        ^ x[3] ^ x[2] ^ x[1];
+    mat_x[3] =  x[7] ^ x[6]                      ^ x[2] ^ x[1];
+    mat_x[2] =  x[7]               ^ x[4] ^ x[3] ^ x[2] ^ x[1];
+    mat_x[1] =         x[6]        ^ x[4]               ^ x[1];
+    mat_x[0] =         x[6]                             ^ x[1] ^ x[0];
       end
    endfunction
       
-   function [7:0] mat_xi;
+   function automatic [7:0] mat_xi;
       input [7:0] x;
       begin
-	 mat_xi[7] =  x[7] ^ x[6] ^ x[5]                      ^ x[1];
-	 mat_xi[6] =         x[6]                      ^ x[2];
-	 mat_xi[5] =         x[6] ^ x[5]                      ^ x[1];
-	 mat_xi[4] =         x[6] ^ x[5] ^ x[4]        ^ x[2] ^ x[1];
-	 mat_xi[3] =                x[5] ^ x[4] ^ x[3] ^ x[2] ^ x[1];
-	 mat_xi[2] =  x[7]               ^ x[4] ^ x[3] ^ x[2] ^ x[1];
-	 mat_xi[1] =                x[5] ^ x[4];
-	 mat_xi[0] =         x[6] ^ x[5] ^ x[4]        ^ x[2]        ^ x[0];
+    mat_xi[7] =  x[7] ^ x[6] ^ x[5]                      ^ x[1];
+    mat_xi[6] =         x[6]                      ^ x[2];
+    mat_xi[5] =         x[6] ^ x[5]                      ^ x[1];
+    mat_xi[4] =         x[6] ^ x[5] ^ x[4]        ^ x[2] ^ x[1];
+    mat_xi[3] =                x[5] ^ x[4] ^ x[3] ^ x[2] ^ x[1];
+    mat_xi[2] =  x[7]               ^ x[4] ^ x[3] ^ x[2] ^ x[1];
+    mat_xi[1] =                x[5] ^ x[4];
+    mat_xi[0] =         x[6] ^ x[5] ^ x[4]        ^ x[2]        ^ x[0];
       end
    endfunction
    
    //------------------------------------------------ Square 
-   function [3:0] gf_sq4;
+   function automatic [3:0] gf_sq4;
       input [3:0] x;
       begin
 	 gf_sq4[0] = x[3] ^ x[1] ^ x[0];
@@ -452,7 +452,7 @@ module GF_MULINV_8 (x, y);
    endfunction // gf_sq4
 
    //------------------------------------------------ Multiply
-   function [3:0] gf_mul4;
+   function automatic [3:0] gf_mul4;
       input [3:0] x, y;
       begin
 	 gf_mul4[3] = x[3]&y[3] ^ x[3]&y[1] ^ x[1]&y[3] ^ 
@@ -471,7 +471,7 @@ module GF_MULINV_8 (x, y);
    endfunction
 
    // lambda = 4'b1100
-   function [3:0] gf_mul4_lambda;
+   function automatic[3:0] gf_mul4_lambda;
       input [3:0] x;
       begin
 	 gf_mul4_lambda[3] = x[2] ^ x[0];
@@ -482,7 +482,6 @@ module GF_MULINV_8 (x, y);
    endfunction
 
 endmodule // GF_MULINV_8
-
 
 
 //================================================ GF_MULINV_4
@@ -508,7 +507,7 @@ module GF_MULINV_4 (x, y);
    assign y[1:0]   = gf_mul2(g1_g0, pi);
    
    //------------------------------------------------ Square
-   function [1:0] gf_sq2;
+   function automatic [1:0] gf_sq2;
       input [1:0] x;
       begin
 	 gf_sq2[1] = x[1];
@@ -517,7 +516,7 @@ module GF_MULINV_4 (x, y);
    endfunction // case
 
    //------------------------------------------------ Multiply
-   function [1:0] gf_mul2;
+   function automatic [1:0] gf_mul2;
       input [1:0] x, y;
       begin
 	 gf_mul2[1] = x[1]&y[1] ^ x[0]&y[1] ^ x[1]&y[0];
@@ -526,7 +525,7 @@ module GF_MULINV_4 (x, y);
    endfunction // case
 
    // phi = 2'b10
-   function [1:0] gf_mul2_phi;
+   function automatic [1:0] gf_mul2_phi;
       input [1:0] x;
       begin
 	 gf_mul2_phi[1] = x[1] ^ x[0];
@@ -535,7 +534,7 @@ module GF_MULINV_4 (x, y);
    endfunction // case
 
    //------------------------------------------------ Multiplicative inversion
-   function [1:0] gf_inv2;
+   function automatic[1:0] gf_inv2;
       input [1:0] x;
       begin
 	 gf_inv2[1] = x[1];

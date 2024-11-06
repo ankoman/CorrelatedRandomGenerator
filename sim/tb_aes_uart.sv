@@ -4,14 +4,14 @@
 // Engineer: Junichi Sakamoto
 // 
 // Create Date: 2024/10/26
-// Module Name: test_aes.sv
+// Module Name: tb_aes.sv
 // Tool Versions: Vivado 2020.1
 //////////////////////////////////////////////////////////////////////////////////
 
 
 
-module test_aes_uart;
-    localparam 
+module tb_aes_uart;
+    localparam integer
         CYCLE = 10,
         DELAY = 2,
         N_LOOP = 20;
@@ -50,8 +50,8 @@ module test_aes_uart;
         $finish;
     end
 
-    task UART_RX;
-        parameter   RATE=115200;//ボーレート[bps]
+    task automatic UART_RX;
+        parameter   integer RATE=115200;//ボーレート[bps]
         input[7:0]  dat;//送るデータ  
         integer     i;//ループ用変数
         time        BIT_CYC;//1ビットの周期
@@ -74,7 +74,7 @@ module test_aes_uart;
         end
     endtask
 
-    task UART_RX_128;
+    task automatic UART_RX_128;
         integer i;
         input [7:0] com;
         input [7:0] addr;

@@ -10,8 +10,8 @@
 
 
 module UART_CTRL #(
-    parameter len_din = 0,
-    parameter len_dout = 0
+    parameter integer len_din = 0,
+    parameter integer len_dout = 0
 )(
     input clk,
     input rst_n,
@@ -25,7 +25,7 @@ module UART_CTRL #(
     output swrst,
     output run
     );
-    localparam  RX_BYTES_CNT = len_din / 8,
+    localparam  integer RX_BYTES_CNT = len_din / 8,
                 TX_BYTES_CNT = len_dout / 8,
                 WAIT_COMMAND = 5'h0,
                 WAIT_ADDR = 5'h1,
@@ -44,7 +44,8 @@ module UART_CTRL #(
    wire tx_busy;
    wire tx_start;
 
-   UART_BYTE uart_byte(.clk(clk), .rst_n(rst_n), .uart_rx(uart_rx), .tx_data(tx_data), .tx_data_en(tx_data_en), .rx_data_en(rx_data_en), .uart_tx(uart_tx), .rx_data(rx_data), .tx_start(tx_start), .tx_busy(tx_busy));
+   UART_BYTE uart_byte(.clk(clk), .rst_n(rst_n), .uart_rx(uart_rx), .tx_data(tx_data), .tx_data_en(tx_data_en), .rx_data_en(rx_data_en),
+                     .uart_tx(uart_tx), .rx_data(rx_data), .tx_start(tx_start), .tx_busy(tx_busy));
     
     reg [4:0] state;
     reg [7:0] command;

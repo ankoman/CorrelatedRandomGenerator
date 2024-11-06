@@ -22,8 +22,8 @@
 
 //import PARAM_UART::*;
 
-parameter   UART_CLK_FREQ = 100000000,
-            UART_BAUD_RATE = 115200;
+parameter integer UART_CLK_FREQ = 100000000;
+parameter integer UART_BAUD_RATE = 115200;
 
 module UART_BYTE(
     input clk,
@@ -38,7 +38,7 @@ module UART_BYTE(
     output reg tx_busy
     );
    
-    localparam  BIT_WIDTH = UART_CLK_FREQ / UART_BAUD_RATE,
+    localparam  integer BIT_WIDTH = UART_CLK_FREQ / UART_BAUD_RATE,
                 N_BIT_WIDTH = 15,//$clog2(BIT_WIDTH);
                 BIT_WIDTH_DIV2 = BIT_WIDTH/2;
 

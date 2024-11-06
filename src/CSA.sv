@@ -10,7 +10,7 @@
 //////////////////////////////////////////////////////////////////////////////////
 
 module CSA #(
-    parameter len = 0
+    parameter integer len = 0
     )(
     input [len-1:0] a_i, b_i, c_i,
     output [len-1:0] ps_o, sc_o

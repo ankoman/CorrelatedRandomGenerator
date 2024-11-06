@@ -20,8 +20,8 @@ module TOP_CRG_HW_UART
     output  [3:0]   led
     );
 
-    localparam len_din = 128;
-    localparam len_dout = 256;
+    localparam integer len_din = 128;
+    localparam integer len_dout = 256;
 
     wire clk = CLK100MHZ;
     wire rst_n = ck_rst_n;
@@ -98,7 +98,7 @@ module singleport_ram (
     input [255:0] din,
     output logic [255:0] dout
 );
-    logic [255:0] ram [255:0];
+    logic [255:0] ram [255];
 
     always_ff @(posedge clk) begin
         if (we)

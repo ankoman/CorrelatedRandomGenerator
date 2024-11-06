@@ -4,14 +4,14 @@
 // Engineer: Junichi Sakamoto
 // 
 // Create Date: 2024/10/26
-// Module Name: test_aes.sv
+// Module Name: tb_aes.sv
 // Tool Versions: Vivado 2020.1
 //////////////////////////////////////////////////////////////////////////////////
 
 
 
-module test_aes;
-    localparam 
+module tb_aes;
+    localparam integer
         CYCLE = 10,
         DELAY = 2,
         N_LOOP = 20;
