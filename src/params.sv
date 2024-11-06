@@ -1,5 +1,6 @@
-`define LEN_PRNG 256
+`timescale 1ns / 1ps
 
+`define LEN_PRNG 256
 
 `ifndef TYPES
     `define TYPES
@@ -20,13 +21,13 @@
         typedef struct packed {
             ///////////////////////////
             // 32 bits: 0b000
-            // 64 bits: 0b100
-            //128 bits: 0b110
+            // 64 bits: 0b001
+            //128 bits: 0b011
             //256 bits: 0b111
             ///////////////////////////
-            logic is64;
-            logic is128;
             logic is256;
+            logic is128;
+            logic is64;
         } width_t;
     endpackage
 `endif 
@@ -44,6 +45,18 @@
                                 31'd0, !width_i.is64, 31'd0, !width_i.is128, 
                                 31'd0, !width_i.is64, 32'd0}; 
 
+        endfunction
+
+        function automatic [63:0] urand_64();
+            urand_64 = {$urandom(), $urandom()};
+        endfunction
+    
+        function automatic [127:0] urand_128();
+            urand_128 = {$urandom(), $urandom(), $urandom(), $urandom()};
+        endfunction
+
+        function automatic [255:0] urand_256();
+            urand_256 = {$urandom(), $urandom(), $urandom(), $urandom(), $urandom(), $urandom(), $urandom(), $urandom()};
         endfunction
     endpackage
 `endif 
