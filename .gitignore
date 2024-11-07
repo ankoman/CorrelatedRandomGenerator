@@ -5,9 +5,8 @@
 !/src/
 !/const/
 !/sim/
-!/dat/
 !*.py
 !*.sv
 !*.xdc
 !*.v
-!*.txt
+# !*.txt

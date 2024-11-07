@@ -35,14 +35,14 @@ def tv_simd_subxor():
     ex = random.randint(0, 2**256 - 1)
 
     list_tv = [f'{x:064x}_{y:064x}_{ex:064x}']
-    for mode in ['a', 'b', 'e']:
+    for mode in ['a', 'b']:
         for width in [32, 64, 128, 256]:
             if mode == 'e' and width in [128, 256]:
                 continue
-            ans = simd_subxor_hw(x, y, mode, width)
+            # ans = simd_subxor_hw(x, y, mode, width)
+            # list_tv.append(f'{ans:064x}')
+            ans = simd_subxor_hw(x, y, mode, width, ex)
             list_tv.append(f'{ans:064x}')
-
-    extra
 
     return '_'.join(list_tv) + '\n'
 
