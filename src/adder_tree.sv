@@ -17,7 +17,6 @@ module adder_tree
                     rst_n_i,
     input   [7:0][31:0]  ps_32_i,
     input   [7:0][31:0]  sc_32_i,
-    // input   mode_t  mode_i,
     input   width_t width_i,
     output  prng_t  sum_o
     );
