@@ -83,7 +83,7 @@ def simd_muland_hw(x, y, mode, width):
     is_a = 0 if mode == 'b' else 1
     mask_in = 2**256-1
     x_in = x & (y | (mask_in * is_a))
-    y_in = (y & (mask_in * is_a)) | (1 & (1 - is_a))
+    y_in = (y & (mask_in * is_a)) | (1 ^ is_a)
     y_in = split_int(y_in, 32, False)
     masks = [
         mask256 + mask256 + mask256 + mask256 + mask128 + mask128 + mask64  + mask32,
