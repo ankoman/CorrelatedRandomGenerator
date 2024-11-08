@@ -83,7 +83,8 @@ module tb_adder_tree;
 
     initial
     begin
-        $readmemh("C:\\Users\\sakamoto\\Desktop\\prj\\CorrelatedRandomGenerator\\dat\\tv_adder_tree.txt", mem_tv);
+        //$readmemh("C:\\Users\\sakamoto\\Desktop\\prj\\CorrelatedRandomGenerator\\dat\\tv_adder_tree.txt", mem_tv);
+        $readmemh("C:\\Users\\seedtyps\\Desktop\\CorrelatedRandomGenerator\\dat\\tv_adder_tree.txt", mem_tv);
         #100;
         rst_n_i <= 0;
         ps_32_i <= '0;

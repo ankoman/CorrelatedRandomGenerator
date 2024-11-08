@@ -15,8 +15,8 @@ module adder_tree
     (
     input           clk_i,
                     rst_n_i,
-    input   [7:0][31:0]  ps_32_i,
-    input   [7:0][31:0]  sc_32_i,
+    input   prng_split32_t  ps_32_i,
+    input   prng_split32_t  sc_32_i,
     input   width_t width_i,
     output  prng_t  sum_o
     );

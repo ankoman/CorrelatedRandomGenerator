@@ -53,7 +53,7 @@ def CSAMUL_256_32(a, b):
     a = split_int(a, 32, False)
     ps, sc = 0, 0
     for i in range(8):
-        pp = a[i] * b & mask
+        pp = a[i] * b
         ps, sc = CSA_256(ps, sc << 1, pp << i*32)
 
     return ps & mask, sc & mask

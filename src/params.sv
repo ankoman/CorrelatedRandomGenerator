@@ -5,7 +5,8 @@
 `ifndef TYPES
     `define TYPES
     package TYPES;
-        typedef logic[`LEN_PRNG - 1:0] prng_t;
+        typedef logic [`LEN_PRNG - 1:0] prng_t;
+        typedef logic [7:0][31:0] prng_split32_t;
 
         typedef struct packed {
                 logic carry;
