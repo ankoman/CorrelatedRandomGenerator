@@ -1,4 +1,4 @@
-from CR_HW import adder_tree, simd_subxor_hw
+from CR_HW import adder_tree, simd_subxor_hw, simd_muland_hw
 from CR import split_int
 import random
 
@@ -46,9 +46,23 @@ def tv_simd_subxor():
 
     return '_'.join(list_tv) + '\n'
 
+def tv_simd_muland():
+    x = random.randint(0, 2**256 - 1)
+    y = random.randint(0, 2**256 - 1)
+
+    list_tv = [f'{x:064x}_{y:064x}']
+    for mode in ['a', 'b']:
+        for width in [32, 64, 128, 256]:
+            if mode == 'e' and width in [128, 256]:
+                continue
+            ans_ps, ans_sc = simd_muland_hw(x, y, mode, width)
+            list_tv.append(f'{ans_ps:064x}_{ans_sc:064x}')
+
+    return '_'.join(list_tv) + '\n'
+
 def main():
 
-    f_name = 'tv_simd_subxor'
+    f_name = 'tv_simd_muland'
 
     random.seed(0)
     list_tv = []

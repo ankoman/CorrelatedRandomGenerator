@@ -36,14 +36,14 @@ module simd_muland
     assign mask128 = {32{width_i.is128}};
     assign mask256 = {32{width_i.is256}};
     assign masks =  {
-        {mask256, mask256, mask256, mask256, mask128, mask128, mask64 , mask32},
-        {mask256, mask256, mask256, mask256, mask128, mask128, mask32 , mask64},
-        {mask256, mask256, mask256, mask256, mask64 , mask32 , mask128, mask128},
-        {mask256, mask256, mask256, mask256, mask32 , mask64 , mask128, mask128},
-        {mask128, mask128, mask64 , mask32 , mask256, mask256, mask256, mask256},
-        {mask128, mask128, mask32 , mask64 , mask256, mask256, mask256, mask256},
+        {mask32 , mask64 , mask128, mask128, mask256, mask256, mask256, mask256},
         {mask64 , mask32 , mask128, mask128, mask256, mask256, mask256, mask256},
-        {mask32 , mask64 , mask128, mask128, mask256, mask256, mask256, mask256}
+        {mask128, mask128, mask32 , mask64, mask256, mask256, mask256, mask256},
+        {mask128, mask128, mask64 , mask32, mask256, mask256, mask256, mask256},
+        {mask256, mask256, mask256, mask256, mask32, mask64, mask128, mask128},
+        {mask256, mask256, mask256, mask256, mask64, mask32, mask128, mask128},
+        {mask256, mask256, mask256, mask256, mask128, mask128, mask32, mask64},
+        {mask256, mask256, mask256, mask256, mask128, mask128, mask64, mask32}
     };
 
     assign mask_in = {$bits(prng_t){is_a}};
@@ -74,7 +74,7 @@ module simd_muland
     generate
         for(genvar i = 0; i < 8; i = i + 1) begin
             CSAMUL_256_32 u_csamul(
-                .x_i(r_x_in[i]),
+                .x_i(r_x_in[i] & masks[i]),
                 .y_i(r_y_in[i][i]),
                 .ps_o(ps_mul[i]),
                 .sc_o(sc_mul[i])
@@ -84,7 +84,7 @@ module simd_muland
                 CSA #(.len($bits(prng_t))) u_csa_0 (
                     .a_i(prng_t'(0)),
                     .b_i(ps_shift[i] & masks[i]),
-                    .c_i((sc_shift << 1) & masks[i]),
+                    .c_i((sc_shift[i] << 1) & masks[i]),
                     .ps_o(tmp_ps[i]),
                     .sc_o(tmp_sc[i])
                 );
@@ -92,15 +92,15 @@ module simd_muland
                     .a_i(tmp_ps[i]),
                     .b_i((tmp_sc[i] << 1) & carry_mask),
                     .c_i(prng_t'(0)),
-                    .ps_o(r_acc_ps[i]),
-                    .sc_o(r_acc_sc[i])
+                    .ps_o(w_acc_ps[i]),
+                    .sc_o(w_acc_sc[i])
                 );
             end
             else begin
                 CSA #(.len($bits(prng_t))) u_csa_0 (
                     .a_i(r_acc_ps[i - 1]),
                     .b_i(ps_shift[i] & masks[i]),
-                    .c_i((sc_shift << 1) & masks[i]),
+                    .c_i((sc_shift[i] << 1) & masks[i]),
                     .ps_o(tmp_ps[i]),
                     .sc_o(tmp_sc[i])
                 );
@@ -123,7 +123,7 @@ module simd_muland
     assign ps_shift[5] = (width_i == 3'b000) ? ps_mul[5] : (width_i.is256) ? ps_mul[5] << 160 : ps_mul[5] << 32;
     assign ps_shift[6] = (width_i.is256) ? ps_mul[6] << 192 : (~width_i.is128) ? ps_mul[6] : ps_mul[6] << 64;
     assign ps_shift[7] = (width_i.is256) ? ps_mul[7] << 224 : (width_i == 3'b000) ? ps_mul[7] : 
-                        (width_i == 3'b001) ? ps_mul[7] << 32 : ps_mul[7] << 64;
+                        (width_i == 3'b001) ? ps_mul[7] << 32 : ps_mul[7] << 96;
 
     assign sc_shift[0] = sc_mul[0];
     assign sc_shift[1] = (width_i == 3'b000) ? sc_mul[1] : sc_mul[1] << 32;
@@ -133,10 +133,12 @@ module simd_muland
     assign sc_shift[5] = (width_i == 3'b000) ? sc_mul[5] : (width_i.is256) ? sc_mul[5] << 160 : sc_mul[5] << 32;
     assign sc_shift[6] = (width_i.is256) ? sc_mul[6] << 192 : (~width_i.is128) ? sc_mul[6] : sc_mul[6] << 64;
     assign sc_shift[7] = (width_i.is256) ? sc_mul[7] << 224 : (width_i == 3'b000) ? sc_mul[7] : 
-                        (width_i == 3'b001) ? sc_mul[7] << 32 : sc_mul[7] << 64;
+                        (width_i == 3'b001) ? sc_mul[7] << 32 : sc_mul[7] << 96;
 
     assign ps_o = r_acc_ps[7];
-    assign sc_o = r_acc_sc[7] & (carry_mask >> 1);
+    prng_t last_mask;
+    assign last_mask = {1'b1, carry_mask[$bits(prng_t) - 1:1]};
+    assign sc_o = r_acc_sc[7] & last_mask;
 endmodule
 
 
