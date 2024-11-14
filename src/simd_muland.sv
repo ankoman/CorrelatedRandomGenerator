@@ -49,8 +49,8 @@ module simd_muland
     assign mask_in = {$bits(prng_t){is_a}};
     assign w_x_in = x_i & (y_i | mask_in);
     assign w_y_in = (y_i & mask_in) | {{($bits(prng_t) - 1){1'd0}}, 1'd1 ^ is_a};
-    assign w_acc_ps[0] = '0;
-    assign w_acc_sc[0] = '0;
+    //assign w_acc_ps[0] = '0;
+    //assign w_acc_sc[0] = '0;
 
     //Pipeline stage registers.
     always_ff @(posedge clk_i) begin

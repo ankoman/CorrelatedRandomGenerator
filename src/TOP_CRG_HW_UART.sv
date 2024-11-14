@@ -29,7 +29,7 @@ module TOP_CRG_HW_UART
     reg busy;
     wire [7:0] addr_extin, addr_extout;
     logic [len_din - 1:0] extin_data, r_key;
-    logic [len_dout - 1:0] dout256, tmp_for_impl;
+    logic [len_dout - 1:0] dout256_0, dout256_1, dout256_2, tmp_for_impl;
 
 
     assign led[0] = busy;
@@ -72,22 +72,28 @@ module TOP_CRG_HW_UART
         end
     end
 
-    PRNG256 prng256_0(
-        .Kin(r_key),
-        .prefix(7'd0),
-        .cnt(input_cnt),
-        .Dout(dout256),
-        .Drdy(busy),
-        .Dvld(dvld),
-        .CLK(clk),
-        .RSTn(rst_n)
+    CRG u_dut_0 (
+        .clk_i(clk),
+        .rst_n_i(rst_n),
+        .party_i(tmp_for_impl[5]),
+        .key_i(r_key),
+        .width_i(tmp_for_impl[2:0]),
+        .mode_i(tmp_for_impl[2:0]),
+        .cnt_start_i(1),
+        .cnt_end_i(100),
+        .run_i(run),
+        .a_o(dout256_0),
+        .b_o(dout256_1),
+        .c_o(dout256_2),
+        .dvld_o(dvld)
     );
+
 
     singleport_ram ram(
         .clk,
         .we(dvld),
         .addr(dvld ? input_cnt - 32'd10 : addr_extout),
-        .din(dout256),
+        .din({dout256_0, dout256_1, dout256_2}),
         .dout(tmp_for_impl)
     );
 endmodule
@@ -95,10 +101,10 @@ endmodule
 module singleport_ram (
     input clk, we,
     input [7:0] addr,
-    input [255:0] din,
-    output logic [255:0] dout
+    input [767:0] din,
+    output logic [767:0] dout
 );
-    logic [255:0] ram [255];
+    logic [767:0] ram [255];
 
     always_ff @(posedge clk) begin
         if (we)

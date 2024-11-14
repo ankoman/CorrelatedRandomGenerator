@@ -14,16 +14,19 @@ module simd_subxor
     import TYPES::*;
     import FUNCS:: make_carry_mask;
 
-    #(parameter integer EXTRA = 0)
+    #(
+        parameter integer EXTRA = 0,
+        parameter integer EX_LATANCY = 0
+    )
     (
-    input           clk_i,
-                    rst_n_i,
-    input   prng_t  x_i,
-    input   prng_t  y_i,
-    input   prng_t  ex_i,
-    input   mode_t  mode_i,
-    input   width_t width_i,
-    output  prng_t  z_o
+        input           clk_i,
+                        rst_n_i,
+        input   prng_t  x_i,
+        input   prng_t  y_i,
+        input   prng_t  ex_i,
+        input   mode_t  mode_i,
+        input   width_t width_i,
+        output  prng_t  z_o
     );
 
     wire sub = ~mode_i.b;
@@ -82,7 +85,24 @@ module simd_subxor
         .sum_o
     );
 
-    assign z_o = sum_o;
+    generate
+        if(EX_LATANCY == 0) begin
+            assign z_o = sum_o;
+        end
+        else begin
+            prng_t [EX_LATANCY - 1:0] r_buf_stages;
+            assign z_o = r_buf_stages[EX_LATANCY - 1];
+
+            always @(posedge clk_i) begin
+                if(!rst_n_i) begin
+                    r_buf_stages <= '0;
+                end
+                else begin
+                    r_buf_stages <= {r_buf_stages[EX_LATANCY - 2:0], sum_o};
+                end
+            end
+        end
+    endgenerate
 
 endmodule
 

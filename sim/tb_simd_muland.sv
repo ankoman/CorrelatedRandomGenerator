@@ -50,6 +50,7 @@ module tb_simd_muland;
     prng_t  x_i;
     prng_t  y_i;
     prng_t  res_a32_ps, res_a32_sc, res_a64_ps, res_a64_sc, res_a128_ps, res_a128_sc, res_a256_ps, res_a256_sc;
+    prng_t  res_b32_ps, res_b32_sc, res_b64_ps, res_b64_sc, res_b128_ps, res_b128_sc, res_b256_ps, res_b256_sc;
 
     always begin
         #(PERIOD/2) clk_i <= ~clk_i;
@@ -153,7 +154,8 @@ module tb_simd_muland;
 
     initial
     begin
-        $readmemh("C:\\Users\\sakamoto\\Desktop\\prj\\CorrelatedRandomGenerator\\dat\\tv_simd_muland.txt", mem_tv);
+        //$readmemh("C:\\Users\\sakamoto\\Desktop\\prj\\CorrelatedRandomGenerator\\dat\\tv_simd_muland.txt", mem_tv);
+        $readmemh("C:/Mac/Home/Desktop/prj/CorrelatedRandomGenerator/dat/tv_simd_muland.txt", mem_tv);
         #100;
         rst_n_i <= 0;
         x_i <= '0;

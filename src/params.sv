@@ -1,12 +1,17 @@
 `timescale 1ns / 1ps
 
 `define LEN_PRNG 256
+`define LEN_KEY 128
+`define LEN_MAX_CR 32
+
 
 `ifndef TYPES
     `define TYPES
     package TYPES;
         typedef logic [`LEN_PRNG - 1:0] prng_t;
+        typedef logic [`LEN_KEY - 1:0] key_t;
         typedef logic [7:0][31:0] prng_split32_t;
+        typedef logic [`LEN_MAX_CR - 1:0] cr_cnt_t;
 
         typedef struct packed {
                 logic carry;

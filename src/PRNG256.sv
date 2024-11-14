@@ -8,10 +8,12 @@
 // Tool Versions: Vivado 2020.1
 //////////////////////////////////////////////////////////////////////////////////
 
-module PRNG256(
+module PRNG256
+    import TYPES::*;
+    (
     input [127:0] Kin,
     input [6:0] prefix,
-    input [31:0] cnt,
+    input cr_cnt_t cnt,
     output [255:0] Dout,
     input Drdy,
     output Dvld,
@@ -21,10 +23,11 @@ module PRNG256(
 
     wire [127:0] aes0_out, aes1_out;
     assign Dout = {aes0_out, aes1_out};
+    wire [128 - $bits(cr_cnt_t) - 8 - 1:0] padding = '0;
 
     AES_Composite_enc_pipeline aes0(
         .Kin(Kin),
-        .Din({1'b0, prefix, 88'd0, cnt}),
+        .Din({1'b0, prefix, padding, cnt}),
         .Dout(aes0_out),
         .Drdy,
         .Dvld,
@@ -34,7 +37,7 @@ module PRNG256(
 
     AES_Composite_enc_pipeline aes1(
         .Kin(Kin),
-        .Din({1'b1, prefix, 88'd0, cnt}),
+        .Din({1'b1, prefix, padding, cnt}),
         .Dout(aes1_out),
         .Drdy,
         .Dvld(),
