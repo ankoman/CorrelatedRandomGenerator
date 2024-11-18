@@ -72,13 +72,12 @@ module AES_Composite_enc_pipeline
       else sr_dvld[10:1] <= sr_dvld[9:0];
    end
 
-   genvar i;
    generate
-      for (i = 0; i < 10; i = i + 1) begin : gen_AES_ROUND
+      for (genvar i = 0; i < 10; i = i + 1) begin : gen_AES_ROUND
          AES_Core aes_core 
          (.din(r_state[i]), .dout(w_state[i+1]), .kin(r_rkey[i]), .sel( (i == 9) ? 1'b1 : 1'b0));
          KeyExpantion keyexpantion 
-         (.kin((i == 0) ? Kin : r_rkey[i-1]), .kout(w_rkey[i]), .rcon(rcon(1)));
+         (.kin((i == 0) ? Kin : r_rkey[i-1]), .kout(w_rkey[i]), .rcon(rcon(i+1)));
       end
    endgenerate
 
