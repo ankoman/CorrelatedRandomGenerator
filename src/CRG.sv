@@ -114,14 +114,14 @@ module CRG
         .clk_i,
         .rst_n_i,
         .x_i(c_ps),
-        .y_i(c_sc << 1),
-        .ex_i(c0),
+        .y_i(r_buf_c0[8]),
+        .ex_i(c_sc << 1),
         .mode_i,
         .width_i,
         .z_o(c1)
     );
 
-    localparam LAT_MULSUB = 17;
+    localparam LAT_MULSUB = 18;
     prng_t [LAT_MULSUB - 1:0] r_buf_a0;
     prng_t [LAT_MULSUB - 1:0] r_buf_b0;
     prng_t [LAT_MULSUB - 1:0] r_buf_c0;

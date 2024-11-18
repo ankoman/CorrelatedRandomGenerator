@@ -154,8 +154,8 @@ module tb_simd_muland;
 
     initial
     begin
-        //$readmemh("C:\\Users\\sakamoto\\Desktop\\prj\\CorrelatedRandomGenerator\\dat\\tv_simd_muland.txt", mem_tv);
-        $readmemh("C:/Mac/Home/Desktop/prj/CorrelatedRandomGenerator/dat/tv_simd_muland.txt", mem_tv);
+        $readmemh("C:\\Users\\sakamoto\\Desktop\\CorrelatedRandomGenerator\\dat\\tv_simd_muland.txt", mem_tv);
+        //$readmemh("C:/Mac/Home/Desktop/prj/CorrelatedRandomGenerator/dat/tv_simd_muland.txt", mem_tv);
         #100;
         rst_n_i <= 0;
         x_i <= '0;
