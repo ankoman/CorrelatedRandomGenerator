@@ -303,7 +303,7 @@ module tb_CRG;
         key_i <= 128'he3e70682c2094cac629f6fbed82c07cd;
         #PERIOD
         cnt_start_i <= 32'd3;
-        cnt_end_i <= 32'h13;
+        cnt_end_i <= 32'hffffffff;
         #PERIOD;
         run_i <= 1;
         #PERIOD;
@@ -342,7 +342,7 @@ module tb_CRG;
             simd_add_or_mul(32, 0, c0_e32_o, c1_e32_o, res_c_e32);
             simd_add_or_mul(32, 1, res_a_e32, res_b_e32, ans_e32_c);
             `ASSERT("e32", ans_e32_c, res_c_e32);
-            `ASSERT("e32", res_a_e32, e0_e32_o ^ e1_e32_o);
+            `ASSERT("e32", {res_a_e32[224], res_a_e32[192], res_a_e32[160], res_a_e32[128], res_a_e32[96], res_a_e32[64], res_a_e32[32], res_a_e32[0]}, e0_e32_o ^ e1_e32_o);
 
             // e64
             simd_add_or_mul(64, 0, a0_e64_o, a1_e64_o, res_a_e64);
@@ -350,6 +350,7 @@ module tb_CRG;
             simd_add_or_mul(64, 0, c0_e64_o, c1_e64_o, res_c_e64);
             simd_add_or_mul(64, 1, res_a_e64, res_b_e64, ans_e64_c);
             `ASSERT("e64", ans_e64_c, res_c_e64);
+            `ASSERT("e64", {res_a_e64[224], res_a_e64[192], res_a_e64[160], res_a_e64[128], res_a_e64[96], res_a_e64[64], res_a_e64[32], res_a_e64[0]}, e0_e64_o ^ e1_e64_o);
 
             // b128
             `ASSERT("b128", ans_b128_c, res_c_b128);
