@@ -9,8 +9,9 @@
 //////////////////////////////////////////////////////////////////////////////////
 
 `define ASSERT(var, ans, res) \
-    assert(res === ans) else begin \
+    assert(ans === res) else begin \
         $display("#%d Failed %s: ans = %h, res = %h", i, var, ans, res); \
+        $display("Type ans: %0d bits, Type res: %0d bits", $bits(ans), $bits(res)); \
         $stop(); \
     end
 
@@ -34,6 +35,10 @@ module tb_CRG;
     prng_t a0_a64_o, b0_a64_o, c0_a64_o, a1_a64_o, b1_a64_o, c1_a64_o;
     prng_t a0_a128_o, b0_a128_o, c0_a128_o, a1_a128_o, b1_a128_o, c1_a128_o;
     prng_t a0_a256_o, b0_a256_o, c0_a256_o, a1_a256_o, b1_a256_o, c1_a256_o;
+    prng_t a0_e32_o, b0_e32_o, c0_e32_o, a1_e32_o, b1_e32_o, c1_e32_o;
+    prng_t a0_e64_o, b0_e64_o, c0_e64_o, a1_e64_o, b1_e64_o, c1_e64_o;
+    prng_t a0_b128_o, b0_b128_o, c0_b128_o, a1_b128_o, b1_b128_o, c1_b128_o;
+    logic [7:0] e0_e32_o, e1_e32_o, e0_e64_o, e1_e64_o;
     logic dvld_o;
 
     always begin
@@ -85,7 +90,7 @@ module tb_CRG;
         .a_o(a0_a64_o),
         .b_o(b0_a64_o),
         .c_o(c0_a64_o),
-        .dvld_o
+        .dvld_o()
     );
 
     CRG u_dut_a64_1 (
@@ -117,7 +122,7 @@ module tb_CRG;
         .a_o(a0_a128_o),
         .b_o(b0_a128_o),
         .c_o(c0_a128_o),
-        .dvld_o
+        .dvld_o()
     );
 
     CRG u_dut_a128_1 (
@@ -149,7 +154,7 @@ module tb_CRG;
         .a_o(a0_a256_o),
         .b_o(b0_a256_o),
         .c_o(c0_a256_o),
-        .dvld_o
+        .dvld_o()
     );
 
     CRG u_dut_a256_1 (
@@ -168,6 +173,106 @@ module tb_CRG;
         .dvld_o()
     );
 
+    //Extended
+    CRG u_dut_e32_0 (
+        .clk_i,
+        .rst_n_i,
+        .party_i(1'b0),
+        .key_i,
+        .width_i(3'b000),
+        .mode_i(3'b001),
+        .cnt_start_i,
+        .cnt_end_i,
+        .run_i,
+        .a_o(a0_e32_o),
+        .b_o(b0_e32_o),
+        .c_o(c0_e32_o),
+        .e_o(e0_e32_o),
+        .dvld_o()
+    );
+
+    CRG u_dut_e32_1 (
+        .clk_i,
+        .rst_n_i,
+        .party_i(1'b1),
+        .key_i,
+        .width_i(3'b000),
+        .mode_i(3'b001),
+        .cnt_start_i,
+        .cnt_end_i,
+        .run_i,
+        .a_o(a1_e32_o),
+        .b_o(b1_e32_o),
+        .c_o(c1_e32_o),
+        .e_o(e1_e32_o),
+        .dvld_o()
+    );
+
+    CRG u_dut_e64_0 (
+        .clk_i,
+        .rst_n_i,
+        .party_i(1'b0),
+        .key_i,
+        .width_i(3'b001),
+        .mode_i(3'b001),
+        .cnt_start_i,
+        .cnt_end_i,
+        .run_i,
+        .a_o(a0_e64_o),
+        .b_o(b0_e64_o),
+        .c_o(c0_e64_o),
+        .e_o(e0_e64_o),
+        .dvld_o()
+    );
+
+    CRG u_dut_e64_1 (
+        .clk_i,
+        .rst_n_i,
+        .party_i(1'b1),
+        .key_i,
+        .width_i(3'b001),
+        .mode_i(3'b001),
+        .cnt_start_i,
+        .cnt_end_i,
+        .run_i,
+        .a_o(a1_e64_o),
+        .b_o(b1_e64_o),
+        .c_o(c1_e64_o),
+        .e_o(e1_e64_o),
+        .dvld_o()
+    );
+
+    CRG u_dut_b128_0 (
+        .clk_i,
+        .rst_n_i,
+        .party_i(1'b0),
+        .key_i,
+        .width_i(3'b011),
+        .mode_i(3'b010),
+        .cnt_start_i,
+        .cnt_end_i,
+        .run_i,
+        .a_o(a0_b128_o),
+        .b_o(b0_b128_o),
+        .c_o(c0_b128_o),
+        .dvld_o()
+    );
+
+    CRG u_dut_b128_1 (
+        .clk_i,
+        .rst_n_i,
+        .party_i(1'b1),
+        .key_i,
+        .width_i(3'b011),
+        .mode_i(3'b010),
+        .cnt_start_i,
+        .cnt_end_i,
+        .run_i,
+        .a_o(a1_b128_o),
+        .b_o(b1_b128_o),
+        .c_o(c1_b128_o),
+        .dvld_o()
+    );
 
     // Veriables
     prng_t res_a_a256, res_b_a256, res_c_a256;
@@ -178,6 +283,14 @@ module tb_CRG;
     prng_t res_a_a32, res_b_a32, res_c_a32, ans_a32_c;
     prng_t res_a_a64, res_b_a64, res_c_a64, ans_a64_c;
     prng_t res_a_a128, res_b_a128, res_c_a128, ans_a128_c;
+    prng_t res_a_b128, res_b_b128, res_c_b128, ans_b128_c;
+    prng_t res_a_e32, res_b_e32, res_c_e32, ans_e32_c;
+    prng_t res_a_e64, res_b_e64, res_c_e64, ans_e64_c;
+
+    assign res_a_b128 = a0_b128_o ^ a1_b128_o;
+    assign res_b_b128 = b0_b128_o ^ b1_b128_o;
+    assign res_c_b128 = c0_b128_o ^ c1_b128_o;
+    assign ans_b128_c = res_a_b128 & res_b_b128;
 
     initial
     begin
@@ -190,7 +303,7 @@ module tb_CRG;
         key_i <= 128'he3e70682c2094cac629f6fbed82c07cd;
         #PERIOD
         cnt_start_i <= 32'd3;
-        cnt_end_i <= 32'hffffffff;
+        cnt_end_i <= 32'h13;
         #PERIOD;
         run_i <= 1;
         #PERIOD;
@@ -220,7 +333,26 @@ module tb_CRG;
             simd_add_or_mul(128, 1, res_a_a128, res_b_a128, ans_a128_c);
             `ASSERT("a128", ans_a128_c, res_c_a128);
 
+            // a256
             `ASSERT("a256", $bits(prng_t)'(res_a_a256 * res_b_a256), res_c_a256);
+        
+            // e32
+            simd_add_or_mul(32, 0, a0_e32_o, a1_e32_o, res_a_e32);
+            simd_add_or_mul(32, 0, b0_e32_o, b1_e32_o, res_b_e32);
+            simd_add_or_mul(32, 0, c0_e32_o, c1_e32_o, res_c_e32);
+            simd_add_or_mul(32, 1, res_a_e32, res_b_e32, ans_e32_c);
+            `ASSERT("e32", ans_e32_c, res_c_e32);
+            `ASSERT("e32", res_a_e32, e0_e32_o ^ e1_e32_o);
+
+            // e64
+            simd_add_or_mul(64, 0, a0_e64_o, a1_e64_o, res_a_e64);
+            simd_add_or_mul(64, 0, b0_e64_o, b1_e64_o, res_b_e64);
+            simd_add_or_mul(64, 0, c0_e64_o, c1_e64_o, res_c_e64);
+            simd_add_or_mul(64, 1, res_a_e64, res_b_e64, ans_e64_c);
+            `ASSERT("e64", ans_e64_c, res_c_e64);
+
+            // b128
+            `ASSERT("b128", ans_b128_c, res_c_b128);
             #PERIOD;
         end
 

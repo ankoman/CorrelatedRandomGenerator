@@ -25,10 +25,11 @@ module CRG
     output prng_t a_o, 
     output prng_t b_o, 
     output prng_t c_o,
+    output [7:0] e_o,
     output dvld_o
     );
 
-    parameter integer LATENCY = 27;
+    parameter integer LATENCY = 28;
 
     cr_cnt_t ptxt_cnt;
     wire cnt_busy = |ptxt_cnt;
@@ -54,16 +55,20 @@ module CRG
     end
     assign dvld_o = dvld_buf[LATENCY - 1];
 
-    prng_t [4:0] dout256;
-    prng_t a0, a1, a, b0, b1, b, c0, c1, c_ps, c_sc;
+    prng_t [5:0] dout256;
+    prng_t a0, a1, a, b0, b1, b, c0, c1, c_ps, c_sc, ex_mask;
+    logic [7:0] e0, e1;
+    assign ex_mask = {4{{31{!mode_i.e}}, !width_i.is64 | !mode_i.e, {31{!mode_i.e}}, 1'b1}};
     assign a0 = dout256[0];
-    assign a  = dout256[1];
+    assign a  = dout256[1] & ex_mask;
     assign b  = dout256[2];
     assign b0 = dout256[3];
     assign c0 = dout256[4];
+    assign e0 = dout256[5][7:0];
+    assign e1 = {a[224], a[192], a[160], a[128], a[96], a[64], a[32], a[0]} ^ e0;
 
     generate
-        for(genvar i = 0; i < 5; i = i + 1) begin
+        for(genvar i = 0; i < 6; i = i + 1) begin
             PRNG256 u_prng(
                 .Kin(key_i),
                 .prefix(7'(i)),
@@ -121,26 +126,30 @@ module CRG
         .z_o(c1)
     );
 
-    localparam LAT_MULSUB = 18;
-    prng_t [LAT_MULSUB - 1:0] r_buf_a0;
-    prng_t [LAT_MULSUB - 1:0] r_buf_b0;
-    prng_t [LAT_MULSUB - 1:0] r_buf_c0;
+    localparam integer LAT_MULSUB = 18;
+    prng_t [LAT_MULSUB - 1:0] r_buf_a0, r_buf_b0, r_buf_c0;
+    logic [LAT_MULSUB - 1:0][7:0] r_buf_e0, r_buf_e1;
 
     always @(posedge clk_i) begin
         if(!rst_n_i) begin
             r_buf_a0 <= '0;
             r_buf_b0 <= '0;
             r_buf_c0 <= '0;
+            r_buf_e0 <= '0;
+            r_buf_e1 <= '0;
         end
         else begin
             r_buf_a0 <= {r_buf_a0[LAT_MULSUB - 2:0], a0};
             r_buf_b0 <= {r_buf_b0[LAT_MULSUB - 2:0], b0};
             r_buf_c0 <= {r_buf_c0[LAT_MULSUB - 2:0], c0};
+            r_buf_e0 <= {r_buf_e0[LAT_MULSUB - 2:0], e0};
+            r_buf_e1 <= {r_buf_e1[LAT_MULSUB - 2:0], e1};
         end
     end
 
     assign a_o = (party_i == 1'b0) ? r_buf_a0[LAT_MULSUB - 1] : a1;
     assign b_o = (party_i == 1'b0) ? r_buf_b0[LAT_MULSUB - 1] : b1;
     assign c_o = (party_i == 1'b0) ? r_buf_c0[LAT_MULSUB - 1] : c1;
+    assign e_o = (party_i == 1'b0) ? r_buf_e0[LAT_MULSUB - 1] : r_buf_e1[LAT_MULSUB - 1];
 
 endmodule

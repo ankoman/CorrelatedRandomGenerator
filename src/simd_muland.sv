@@ -32,9 +32,9 @@ module simd_muland
     prng_t [7:0] masks;
 
     assign mask32 = 32'hffffffff;
-    assign mask64 = {32{width_i.is64}};
-    assign mask128 = {32{width_i.is128}};
-    assign mask256 = {32{width_i.is256}};
+    assign mask64 = {32{width_i.is64}} | {32{mode_i.b}};
+    assign mask128 = {32{width_i.is128}} | {32{mode_i.b}};
+    assign mask256 = {32{width_i.is256}} | {32{mode_i.b}};
     assign masks =  {
         {mask32 , mask64 , mask128, mask128, mask256, mask256, mask256, mask256},
         {mask64 , mask32 , mask128, mask128, mask256, mask256, mask256, mask256},

@@ -228,12 +228,13 @@ class CRG_HW(CRG):
         c1 = simd_subxor_hw(ps, c0, self.abe, self.width, sc << 1)
 
         ### For extended triples
-        if self.cnt_ext == 0:
-            self.e0_raw = self.PRNG256_5.gen()
-            self.cnt_ext = 10
-        else:
-            self.cnt_ext -= 1
-            self.e0_raw >>= 8
+        # if self.cnt_ext == 0:
+        #     self.e0_raw = self.PRNG256_5.gen()
+        #     self.cnt_ext = 10
+        # else:
+        #     self.cnt_ext -= 1
+        #     self.e0_raw >>= 8
+        self.e0_raw = self.PRNG256_5.gen()
         e0 = self.e0_raw & 0xff
 
         e = 0
@@ -241,6 +242,8 @@ class CRG_HW(CRG):
             a_bit = (a >> (32 * i)) & 1
             e |= a_bit << i
         e1 = e ^ e0
+
+        print(hex(e1))
 
         ### Store
         self.stored_a0 = split_int(a0, self.width)
@@ -272,11 +275,13 @@ def main(cr_mode, n_cr = 1, party = 0):
     """
 
     crg = CRG_HW(0, party, cr_mode)
-
-    key = 0x2b7e151628aed2a6abf7158809cf4f3c
-    prng = PRNG_256(key.to_bytes(16, 'big'), 0)
     for i in range(256):
-        print(hex(prng.gen()))
+        cr = crg.get_cr()
+
+    # key = 0x2b7e151628aed2a6abf7158809cf4f3c
+    # prng = PRNG_256(key.to_bytes(16, 'big'), 0)
+    # for i in range(256):
+    #     print(hex(prng.gen()))
 
 if __name__ == "__main__":
     Fire(main)

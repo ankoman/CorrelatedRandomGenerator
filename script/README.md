@@ -14,3 +14,4 @@ python3 -m unittest
 - c1減算をmulandへ取り込み
 - ~~extended実装~~
 - 乗算器CSAの効率なツリー
+- Extended用のPRNGをラウンド実装に
