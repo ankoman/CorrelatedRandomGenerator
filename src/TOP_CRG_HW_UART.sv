@@ -25,11 +25,15 @@ module TOP_CRG_HW_UART
 
     wire clk = CLK100MHZ;
     wire rst_n = ck_rst_n;
-    wire run, extin_en, dvld;
-    reg busy;
-    wire [7:0] addr_extin, addr_extout;
-    logic [len_din - 1:0] extin_data, r_key;
-    logic [len_dout - 1:0] dout256_0, dout256_1, dout256_2, tmp_for_impl;
+    logic run, run_d, extin_en, dvld;
+    reg busy, r_party;
+    key_t r_key;
+    width_t r_width;
+    mode_t r_mode;
+    cr_cnt_t r_cnt_start, r_cnt_end, r_n_CRs;
+    wire [7:0] addr_extin, addr_extout, e_o;
+    logic [len_din - 1:0] extin_data;
+    logic [len_dout - 1:0] a_o, b_o, c_o, tmp_for_impl;
 
 
     assign led[0] = busy;
@@ -66,25 +70,54 @@ module TOP_CRG_HW_UART
     always @(posedge clk) begin
         if(!rst_n) begin
             r_key <= '0;
+            r_mode <= '0;
+            r_width <= '0;
         end
         else if(extin_en) begin
-            r_key <= extin_data;
+            if (addr_extin === 8'h10)
+                r_key <= extin_data;
+            else if (addr_extin === 8'h11)
+                r_mode <= extin_data[2:0];
+            else if (addr_extin === 8'h12)
+                r_width <= extin_data[2:0];
+            else if (addr_extin === 8'h13)
+                r_n_CRs <= extin_data[31:0];
         end
     end
 
+
+    always @(posedge clk) begin
+        if(!rst_n) begin
+            r_cnt_start <= '0;
+            r_cnt_end <= '0;
+        end
+        else if(run) begin
+            // Blocking
+            r_cnt_start <= r_cnt_end + 1;
+            r_cnt_end <= r_cnt_end + r_n_CRs;
+        end
+    end
+
+    always @(posedge clk) begin
+        if(!rst_n)
+            run_d <= '0;
+        else
+            run_d <= run;
+    end
     CRG u_dut_0 (
         .clk_i(clk),
         .rst_n_i(rst_n),
-        .party_i(tmp_for_impl[5]),
+        .party_i(1'b1),
         .key_i(r_key),
-        .width_i(tmp_for_impl[2:0]),
-        .mode_i(tmp_for_impl[2:0]),
-        .cnt_start_i(1),
-        .cnt_end_i(100),
-        .run_i(run),
-        .a_o(dout256_0),
-        .b_o(dout256_1),
-        .c_o(dout256_2),
+        .width_i(r_width),
+        .mode_i(r_mode),
+        .cnt_start_i(r_cnt_start),
+        .cnt_end_i(r_cnt_end),
+        .run_i(run_d),
+        .a_o,
+        .b_o,
+        .c_o,
+        .e_o,
         .dvld_o(dvld)
     );
 
@@ -101,10 +134,10 @@ endmodule
 module singleport_ram (
     input clk, we,
     input [7:0] addr,
-    input [767:0] din,
-    output logic [767:0] dout
+    input [775:0] din,
+    output logic [775:0] dout
 );
-    logic [767:0] ram [255];
+    logic [775:0] ram [255];
 
     always_ff @(posedge clk) begin
         if (we)

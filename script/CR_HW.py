@@ -243,8 +243,6 @@ class CRG_HW(CRG):
             e |= a_bit << i
         e1 = e ^ e0
 
-        print(hex(e1))
-
         ### Store
         self.stored_a0 = split_int(a0, self.width)
         self.stored_a1 = split_int(a1, self.width)
@@ -275,8 +273,9 @@ def main(cr_mode, n_cr = 1, party = 0):
     """
 
     crg = CRG_HW(0, party, cr_mode)
-    for i in range(256):
+    for i in range(n_cr):
         cr = crg.get_cr()
+        print(hex(cr[0]))
 
     # key = 0x2b7e151628aed2a6abf7158809cf4f3c
     # prng = PRNG_256(key.to_bytes(16, 'big'), 0)
