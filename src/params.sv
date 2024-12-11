@@ -45,6 +45,12 @@
             logic encap;
             logic decap;
         } kem_mode_t;
+
+        typedef struct packed {
+            logic trng;
+            logic sampler;
+            logic ntt;
+        } kem_module_t;
     endpackage
 `endif 
 

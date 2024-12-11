@@ -50,23 +50,23 @@ module PRNG256
             );
         end
         else begin
-            logic Krdy;
-            always @(posedge CLK) begin
+            logic Drdy_d;
+            always_ff @(posedge CLK) begin
                 if(!RSTn)
-                    Krdy <= '0;
+                    Drdy_d <= '0;
                 else
-                    Krdy <= Drdy;
+                    Drdy_d <= Drdy;
             end
 
             AES_Composite_enc aes0(
                 .Kin(Kin),
                 .Din({1'b0, prefix, padding, cnt}),
                 .Dout(aes0_out),
-                .Drdy,
+                .Drdy(Drdy_d),
                 .Dvld,
                 .CLK,
                 .RSTn,
-                .Krdy,
+                .Krdy(Drdy),
                 .Kvld(),
                 .EN(1'b1),
                 .BSY()
@@ -76,11 +76,11 @@ module PRNG256
                 .Kin(Kin),
                 .Din({1'b1, prefix, padding, cnt}),
                 .Dout(aes1_out),
-                .Drdy,
+                .Drdy(Drdy_d),
                 .Dvld(),
                 .CLK,
                 .RSTn,
-                .Krdy,
+                .Krdy(Drdy),
                 .Kvld(),
                 .EN(1'b1),
                 .BSY()

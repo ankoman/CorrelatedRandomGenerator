@@ -1,0 +1,17 @@
+{ signal: [
+    { name: "clk",              wave: "p.....|............."},
+    { name: "current_state",    wave: "=...=.|..=..|.=.|.=.", data: ["IDLE", "KEYGEN", "WAIT4DECAP", "DECAP", "IDLE"]},
+    { name: "next_state",       wave: "=..=..|.=...|=..|=..", data: ["IDLE", "KEYGEN", "WAIT4DECAP", "DECAP", "IDLE"]},
+    { name: "run_i",            wave: "0..10.|.....|10.|..."},
+    { name: "mode_i",           wave: "x..=x.|.....|=x.|x..", data: [4, 1]},
+    { name: "done_i",           wave: "0.....|.=0..|...|=0.", data: [4, 1]},
+    { name: "en_kem_fsms_o",    wave: "0...=.|..0..|.=.|.0.", data: [4, 1]},
+    { name: "run_keygen",       wave: "0...10"},
+    { name: "run_decap",        wave: "0.............10"},
+  ],
+  head:{
+    text:'Alice Side ML_KEM',
+    tick:-2,
+  },
+  config: { hscale: 1 }
+}
