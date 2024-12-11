@@ -4,7 +4,6 @@
 `define LEN_KEY 128
 `define LEN_MAX_CR 32
 
-
 `ifndef TYPES
     `define TYPES
     package TYPES;
@@ -35,6 +34,17 @@
             logic is128;
             logic is64;
         } width_t;
+    endpackage
+`endif 
+
+`ifndef TYPES_KEM
+    `define TYPES_KEM
+    package TYPES_KEM;
+        typedef struct packed {
+            logic keygen;
+            logic encap;
+            logic decap;
+        } kem_mode_t;
     endpackage
 `endif 
 
