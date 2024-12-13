@@ -22,9 +22,6 @@ module TOP_CRG_HW_ASIC
     inout[LEN_INOUT - 1:0] dinout
     );
 
-    logic [LEN_INOUT*7 - 1:0] sreg_dout;
-    assign dinout = din_rdy_i ?  'z : sreg_dout[LEN_INOUT - 1:0];
-
     logic din_rdy_prev, first_input, second_input, run_start, run;
     logic [6:0] sreg_run;
     always_ff @(posedge clk_70m_i) begin
@@ -78,59 +75,34 @@ module TOP_CRG_HW_ASIC
         .dvld_o(dout_vld_o)
     );
 
-    logic [LEN_INOUT*7 - 1:0] buf_for_sreg0, buf_for_sreg1, buf_for_sreg2;
-    logic dout_vld0, dout_vld1, dout_vld2;
+    logic [6:0][LEN_INOUT - 1:0] dout_buf;
 
     always @(posedge clk_10m_i) begin
         if (!rst_n_i) begin
-            buf_for_sreg0 <= '0;
+            dout_buf <= '0;
         end
         else begin
-            dout_vld0 <= dout_vld_o;
             if (dout_vld_o) begin
-                buf_for_sreg0 <= {a_o, b_o, c_o, e_o};
+                dout_buf <= {a_o, b_o, c_o, e_o, 8'd0};
             end
         end
     end
 
+    logic [2:0] cnt_index;
+
     always @(posedge clk_70m_i) begin
         if (!rst_n_i) begin
-            dout_vld1 <= '0;
-            dout_vld2 <= '0;
-            buf_for_sreg1 <= '0;
-            buf_for_sreg2 <= '0;
+            cnt_index <= '0;
         end
-        else begin
-            dout_vld1 <= dout_vld0;
-            dout_vld2 <= dout_vld1;
-            buf_for_sreg1 <= buf_for_sreg0;
-            buf_for_sreg2 <= buf_for_sreg1;
+        else if (dout_vld_o) begin
+            if (cnt_index == 3'd6)
+                cnt_index <= '0;
+            else
+                cnt_index <= cnt_index + 1'b1;
+
         end
     end
 
-    reg clk1_sync1, clk1_sync2; // clk2ドメインでのclk1同期用
-    reg clk1_prev;             // 前回のclk1状態（clk2ドメイン）
-    reg clk_10m_edge;
+    assign dinout = din_rdy_i ?  'z : dout_buf[cnt_index];
 
-    // クロック1をクロック2に同期
-    always @(posedge clk_70m_i) begin
-        if (!rst_n_i) begin
-            clk1_sync1 <= 1'b0;
-            clk1_sync2 <= 1'b0;
-        end else begin
-            clk1_sync1 <= clk_10m_i;       // clk1の1段目同期
-            clk1_sync2 <= clk1_sync1; // clk1の2段目同期
-        end
-    end
-
-    // clk1の立ち上がりエッジ検出
-    always @(posedge clk_70m_i) begin
-        if (!rst_n_i) begin
-            clk1_prev <= 1'b0;
-            clk_10m_edge <= 1'b0;
-        end else begin
-            clk_10m_edge <= (clk1_sync2 && !clk1_prev); // 立ち上がりエッジ検出
-            clk1_prev <= clk1_sync2; // 前回の状態を保存
-        end
-    end
 endmodule
