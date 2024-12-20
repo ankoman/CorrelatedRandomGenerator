@@ -3,4 +3,4 @@
 
 - Kyber NTT repositoty `https://github.com/vivadomacnchen/kyberVerilog.git`
 
-- Keccak source `https://keccak.team/hardware.html`
+- Keccak source `https://github.com/Chair-for-Security-Engineering/Low-Latency_Keccak`
