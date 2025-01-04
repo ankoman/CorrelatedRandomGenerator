@@ -37,22 +37,27 @@
 
 
 module tb_llkeccak;
-
-    parameter STATE_SIZE = 1600;
+   localparam LEN_B = 1600;
 
 	// Inputs
 	reg Clock;
 	reg Reset;
-	reg [199:0][7:0] Input;
-	reg [1087:0] rate;
-	reg [511:0] capacity;
+	reg [399:0] In;
+	reg [199:0] FreshRand;
 
 	// Outputs
 	wire Ready;
-	wire [24:0][63:0] Output;
+	wire [399:0] Out;
+
+
+	wire [24:0][LEN_B/25 - 1:0] Output, Round_out;
+	assign Round_out = uut.SlicesFromChi;
+	reg  [LEN_B - 1:0] Input;
+	reg  [LEN_B - 1:0] In0;
+	reg  [LEN_B - 1:0] In1;	
 	
 	// Instantiate the Unit Under Test (UUT)
-	keccak_top #(.b(STATE_SIZE), .W(64), .d(0)) uut (
+	keccak_top #(.d(0), .b(LEN_B), .W(LEN_B/25)) uut (
 		.Clock(Clock), 
 		.Reset(Reset), 
 		.InData(Input), 
@@ -61,18 +66,13 @@ module tb_llkeccak;
 		.OutData(Output)
 	);
 	
-	always #10 Clock = ~Clock;
-
 		initial begin	
 		Clock = 0;
 		Reset = 1;
 		#500
-		capacity = 512'h0;
 		
-		Input = {8'h60, 1072'h0, 8'h01, 512'h0};
-		rate = 1188'h6000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000080;
-		//Input = {512'h0, 8'h01, {16{64'h0}}, 48'h00, 8'h60};
-
+		//Input = {128'hffffffffffffffffffffffffffffffff,72'h0123456789abcdef01};
+		Input = {1600'h0};
 		#20
 		Reset = 0;
 		@(posedge Ready)
@@ -85,8 +85,69 @@ module tb_llkeccak;
 				$write("%x\n", Output);
 			end
 			
+		#400
+		Reset = 1;
+		In0 = {7{$random}};
+		In1 = Input ^ In0;
+		#20
+		Reset = 0;
+		@(posedge Ready)
+			#10
+			if(Output == 200'he090c8c5e596d3421d2fcc695838626cbb365352811837480f) begin
+					$write("------------------PASS---------------\n");
+			end
+			else begin
+				$write("\------------------FAIL---------------\n");
+				$write("%x\n", Output);
+			end
+	
+		#400
+		Reset = 1;
+		Input = {128'hffffffffffffffffffffffffffffffff,72'h000000000000000008};
+		In0 = {7{$random}};
+		In1 = Input ^ In0;
+		#20
+		Reset = 0;
+		
+		#400
+		Reset = 1;
+		Input = {128'hffffffffffffffffffffffffffffffff,72'h000000000000000006};
+		In0 = {7{$random}};
+		In1 = Input ^ In0;
+		#20
+		Reset = 0;
+
+		#400
+		Reset = 1;
+		Input = {128'hffffffffffffffffffffffffffffffff,72'h0123456789abcdef01};
+		In0 = {7{$random}};
+		In1 = Input ^ In0;
+		#20
+		Reset = 0;
+		@(posedge Ready)
+			#10
+			if(Output == 200'he090c8c5e596d3421d2fcc695838626cbb365352811837480f) begin
+					$write("------------------PASS---------------\n");
+			end
+			else begin
+				$write("\------------------FAIL---------------\n");
+				$write("%x\n", Output);
+			end
+		
+		#400
+		Reset = 1;
+		Input = {200{1'b0}};
+		In0 = {7{$random}};
+		In1 = Input ^ In0;
+		#20
+		Reset = 0;
+		
 	end
 	
+	   always #10 Clock = ~Clock;
+		
+		always #20 FreshRand  = {7{$random}};
+
       
 endmodule
 

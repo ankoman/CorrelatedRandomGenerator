@@ -1,6 +1,6 @@
 *
-!.gitignore
-!README.md
+!./.gitignore
+!./README.md
 !/script/
 !/src/
 !/const/
@@ -11,4 +11,11 @@
 !*.xdc
 !*.v
 !*.json
+!/src_others
+!/src_others/Low-Latency_Keccak-main
+!src_others/Low-Latency_Keccak-main/RTL/
+src_others/Low-Latency_Keccak-main/RTL/*
+!src_others/Low-Latency_Keccak-main/RTL/keccak_roundconstant.v
+!src_others/Low-Latency_Keccak-main/RTL/keccak_control.v
+
 # !*.txt
