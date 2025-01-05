@@ -50,8 +50,9 @@ module tb_llkeccak;
 	wire [399:0] Out;
 
 
-	wire [24:0][LEN_B/25 - 1:0] Output, Round_out;
+	wire [24:0][LEN_B/25 - 1:0] Output, Round_out, In_lane;
 	assign Round_out = uut.SlicesFromChi;
+	assign In_lane = Input;
 	reg  [LEN_B - 1:0] Input;
 	reg  [LEN_B - 1:0] In0;
 	reg  [LEN_B - 1:0] In1;	
@@ -73,6 +74,9 @@ module tb_llkeccak;
 		
 		//Input = {128'hffffffffffffffffffffffffffffffff,72'h0123456789abcdef01};
 		Input = {1600'h0};
+		Input[3:0] = 4'b0110;
+		Input[1087] = 1'b1;
+
 		#20
 		Reset = 0;
 		@(posedge Ready)
