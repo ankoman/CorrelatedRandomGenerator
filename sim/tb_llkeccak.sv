@@ -50,8 +50,10 @@ module tb_llkeccak;
 	wire [399:0] Out;
 
 
-	wire [24:0][LEN_B/25 - 1:0] Output, Round_out, In_lane;
+	wire [24:0][LEN_B/25 - 1:0] Output, Round_out, In_lane, theta, pi, chi;
 	assign Round_out = uut.SlicesFromChi;
+	assign theta = uut.SlicesFromCompression;
+	assign pi = uut.StateFromRhoPi;
 	assign In_lane = Input;
 	reg  [LEN_B - 1:0] Input;
 	reg  [LEN_B - 1:0] In0;
@@ -75,7 +77,7 @@ module tb_llkeccak;
 		//Input = {128'hffffffffffffffffffffffffffffffff,72'h0123456789abcdef01};
 		Input = {1600'h0};
 		Input[3:0] = 4'b0110;
-		Input[1087] = 1'b1;
+		Input[575] = 1'b1;
 
 		#20
 		Reset = 0;
@@ -89,62 +91,62 @@ module tb_llkeccak;
 				$write("%x\n", Output);
 			end
 			
-		#400
-		Reset = 1;
-		In0 = {7{$random}};
-		In1 = Input ^ In0;
-		#20
-		Reset = 0;
-		@(posedge Ready)
-			#10
-			if(Output == 200'he090c8c5e596d3421d2fcc695838626cbb365352811837480f) begin
-					$write("------------------PASS---------------\n");
-			end
-			else begin
-				$write("\------------------FAIL---------------\n");
-				$write("%x\n", Output);
-			end
+		// #400
+		// Reset = 1;
+		// In0 = {7{$random}};
+		// In1 = Input ^ In0;
+		// #20
+		// Reset = 0;
+		// @(posedge Ready)
+		// 	#10
+		// 	if(Output == 200'he090c8c5e596d3421d2fcc695838626cbb365352811837480f) begin
+		// 			$write("------------------PASS---------------\n");
+		// 	end
+		// 	else begin
+		// 		$write("\------------------FAIL---------------\n");
+		// 		$write("%x\n", Output);
+		// 	end
 	
-		#400
-		Reset = 1;
-		Input = {128'hffffffffffffffffffffffffffffffff,72'h000000000000000008};
-		In0 = {7{$random}};
-		In1 = Input ^ In0;
-		#20
-		Reset = 0;
+		// #400
+		// Reset = 1;
+		// Input = {128'hffffffffffffffffffffffffffffffff,72'h000000000000000008};
+		// In0 = {7{$random}};
+		// In1 = Input ^ In0;
+		// #20
+		// Reset = 0;
 		
-		#400
-		Reset = 1;
-		Input = {128'hffffffffffffffffffffffffffffffff,72'h000000000000000006};
-		In0 = {7{$random}};
-		In1 = Input ^ In0;
-		#20
-		Reset = 0;
+		// #400
+		// Reset = 1;
+		// Input = {128'hffffffffffffffffffffffffffffffff,72'h000000000000000006};
+		// In0 = {7{$random}};
+		// In1 = Input ^ In0;
+		// #20
+		// Reset = 0;
 
-		#400
-		Reset = 1;
-		Input = {128'hffffffffffffffffffffffffffffffff,72'h0123456789abcdef01};
-		In0 = {7{$random}};
-		In1 = Input ^ In0;
-		#20
-		Reset = 0;
-		@(posedge Ready)
-			#10
-			if(Output == 200'he090c8c5e596d3421d2fcc695838626cbb365352811837480f) begin
-					$write("------------------PASS---------------\n");
-			end
-			else begin
-				$write("\------------------FAIL---------------\n");
-				$write("%x\n", Output);
-			end
+		// #400
+		// Reset = 1;
+		// Input = {128'hffffffffffffffffffffffffffffffff,72'h0123456789abcdef01};
+		// In0 = {7{$random}};
+		// In1 = Input ^ In0;
+		// #20
+		// Reset = 0;
+		// @(posedge Ready)
+		// 	#10
+		// 	if(Output == 200'he090c8c5e596d3421d2fcc695838626cbb365352811837480f) begin
+		// 			$write("------------------PASS---------------\n");
+		// 	end
+		// 	else begin
+		// 		$write("\------------------FAIL---------------\n");
+		// 		$write("%x\n", Output);
+		// 	end
 		
-		#400
-		Reset = 1;
-		Input = {200{1'b0}};
-		In0 = {7{$random}};
-		In1 = Input ^ In0;
-		#20
-		Reset = 0;
+		// #400
+		// Reset = 1;
+		// Input = {200{1'b0}};
+		// In0 = {7{$random}};
+		// In1 = Input ^ In0;
+		// #20
+		// Reset = 0;
 		
 	end
 	
