@@ -50,14 +50,12 @@ module tb_llkeccak;
 	wire [399:0] Out;
 
 
-	wire [24:0][LEN_B/25 - 1:0] Output, Round_out, In_lane, theta, pi, chi;
+	logic [4:0][4:0][LEN_B/25 - 1:0] Input, Output, Round_out, theta, pi, chi, padded_data;
 	assign Round_out = uut.SlicesFromChi;
 	assign theta = uut.SlicesFromCompression;
 	assign pi = uut.StateFromRhoPi;
-	assign In_lane = Input;
-	reg  [LEN_B - 1:0] Input;
 	reg  [LEN_B - 1:0] In0;
-	reg  [LEN_B - 1:0] In1;	
+	reg  [LEN_B - 1:0] In1;
 	
 	// Instantiate the Unit Under Test (UUT)
 	keccak_top #(.d(0), .b(LEN_B), .W(LEN_B/25)) uut (
@@ -74,10 +72,10 @@ module tb_llkeccak;
 		Reset = 1;
 		#500
 		
-		//Input = {128'hffffffffffffffffffffffffffffffff,72'h0123456789abcdef01};
+		//SHA3-256
 		Input = {1600'h0};
-		Input[3:0] = 4'b0110;
-		Input[575] = 1'b1;
+		Input[0][0] = 64'h0000000000000006; //Input[7:0] = 4'h06;				// Lane[0][0]
+		Input[1][3] = 64'h8000000000000000;	// Input[575:568] = 8'h80;			// Lane[1][3]
 
 		#20
 		Reset = 0;
@@ -90,22 +88,37 @@ module tb_llkeccak;
 				$write("\------------------FAIL---------------\n");
 				$write("%x\n", Output);
 			end
-			
-		// #400
-		// Reset = 1;
-		// In0 = {7{$random}};
-		// In1 = Input ^ In0;
-		// #20
-		// Reset = 0;
-		// @(posedge Ready)
-		// 	#10
-		// 	if(Output == 200'he090c8c5e596d3421d2fcc695838626cbb365352811837480f) begin
-		// 			$write("------------------PASS---------------\n");
-		// 	end
-		// 	else begin
-		// 		$write("\------------------FAIL---------------\n");
-		// 		$write("%x\n", Output);
-		// 	end
+
+		//SHA3-512	
+		#400
+		Reset = 1;
+		Input = {1600'h0};
+		padded_data = {1024'h0, 8'h80, 296'h0, 8'h06, 8'h02, 256'h7f9c2ba4e88f827d616045507605853ed73b8093f6efbc88eb1a6eacfa66ef26};
+		//padded_data = {1024'h0, 8'h80, 560'h0, 8'h06}; // empty string
+
+		Input[0][0] = padded_data[0][0]; // [63:0]
+		Input[1][0] = padded_data[0][1]; // [127:64]
+		Input[2][0] = padded_data[0][2]; // [191:128]
+		Input[3][0] = padded_data[0][3]; // [255:192]
+		Input[4][0] = padded_data[0][4]; // [319:256]
+
+		Input[0][1] = padded_data[1][0]; 
+		Input[1][1] = padded_data[1][1];
+		Input[2][1] = padded_data[1][2]; 
+		Input[3][1] = padded_data[1][3]; 
+		Input[4][1] = padded_data[1][4];
+
+		#20
+		Reset = 0;
+		@(posedge Ready)
+			#10
+			if(Output == 200'he090c8c5e596d3421d2fcc695838626cbb365352811837480f) begin
+					$write("------------------PASS---------------\n");
+			end
+			else begin
+				$write("\------------------FAIL---------------\n");
+				$write("%x\n", Output);
+			end
 	
 		// #400
 		// Reset = 1;
