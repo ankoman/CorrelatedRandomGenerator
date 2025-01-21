@@ -49,7 +49,17 @@ module tb_llkeccak;
 	wire Ready;
 	wire [399:0] Out;
 
+    typedef struct packed {
+        logic [255:0] d;
+        logic [255:0] z;
+		logic [800*8-1:0] pk;
+        logic [1632*8-1:0] sk;
+        logic [255:0] m;
+        logic [768*8-1:0] ct;
+        logic [255:0] ss;
+	} tv_ml_kem_512_t;
 
+    tv_ml_kem_512_t mem_tv [100];
 	logic [4:0][4:0][LEN_B/25 - 1:0] Input, Output, Round_out, theta, pi, chi, padded_data;
 	assign Round_out = uut.SlicesFromChi;
 	assign theta = uut.SlicesFromCompression;
@@ -68,13 +78,14 @@ module tb_llkeccak;
 	);
 	
 		initial begin	
+		$readmemh("C:\\Users\\sakamoto\\Desktop\\prj\\CorrelatedRandomGenerator\\dat\\ml_kem_512.kat.little", mem_tv);
 		Clock = 0;
 		Reset = 1;
 		#500
 		
 		//SHA3-256
 		Input = {1600'h0};
-		Input[0][0] = 64'h0000000000000006; //Input[7:0] = 4'h06;				// Lane[0][0]
+		Input[0][0] = 64'h0000000000000006; // Input[7:0] = 4'h06;				// Lane[0][0]
 		Input[1][3] = 64'h8000000000000000;	// Input[575:568] = 8'h80;			// Lane[1][3]
 
 		#20
@@ -93,8 +104,15 @@ module tb_llkeccak;
 		#400
 		Reset = 1;
 		Input = {1600'h0};
-		padded_data = {1024'h0, 8'h80, 296'h0, 8'h06, 8'h02, 256'h7f9c2ba4e88f827d616045507605853ed73b8093f6efbc88eb1a6eacfa66ef26};
-		//padded_data = {1024'h0, 8'h80, 560'h0, 8'h06}; // empty string
+		padded_data = {1024'h0, 8'h80, 296'h0, 8'h06, 8'h02, reverse_endian_256(256'h7f9c2ba4e88f827d616045507605853ed73b8093f6efbc88eb1a6eacfa66ef26)};
+		//padded_data = {1024'h0, 8'h80, 560'h0, 8'h06}; // empty string. This gives the corrent result.
+		//padded_data = {1024'h0, 8'h80, 496'h0, 8'h06, 64'h0001020304050607}; // 64 bits input. This gives the correct result.
+		//padded_data = {1024'h0, 8'h80, 432'h0, 8'h06, 64'h0001020304050607, 64'h0001020304050607}; // 128 bits input. This gives the correct result.
+		//padded_data = {1024'h0, 8'h80, 304'h0, 8'h06, 256'h1001020304050607000102030405060700010203040506070001020304050607}; // 256 bits input. This gives the correct result.
+		//padded_data = {1024'h0, 8'h80, 296'h0, 8'h06, 8'h02, 256'h1001020304050607000102030405060700010203040506070001020304050607}; // 226 + 8 bits input. This gives the correct result.
+
+
+
 
 		Input[0][0] = padded_data[0][0]; // [63:0]
 		Input[1][0] = padded_data[0][1]; // [127:64]
@@ -160,13 +178,21 @@ module tb_llkeccak;
 		// In1 = Input ^ In0;
 		// #20
 		// Reset = 0;
-		
-	end
 	
+	end
+
 	   always #10 Clock = ~Clock;
 		
 		always #20 FreshRand  = {7{$random}};
 
-      
+	function automatic logic [255:0] reverse_endian_256(input logic [255:0] data);
+		logic [255:0] reversed = '0;
+
+		for (int i = 0; i < 32; i++) begin
+			reversed[i*8 +: 8] = data[(32-1-i)*8 +: 8];
+    end
+
+    return reversed;
+endfunction
 endmodule
 
