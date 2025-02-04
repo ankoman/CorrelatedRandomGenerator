@@ -125,52 +125,35 @@ module tb_llkeccak;
 			if(Output == 200'he090c8c5e596d3421d2fcc695838626cbb365352811837480f) begin
 					$write("------------------PASS---------------\n");
 			end
-			else begin
-				$write("\------------------FAIL---------------\n");
-				$write("%x\n", Output);
-			end
-	
-		// #400
-		// Reset = 1;
-		// Input = {128'hffffffffffffffffffffffffffffffff,72'h000000000000000008};
-		// In0 = {7{$random}};
-		// In1 = Input ^ In0;
-		// #20
-		// Reset = 0;
 		
-		// #400
-		// Reset = 1;
-		// Input = {128'hffffffffffffffffffffffffffffffff,72'h000000000000000006};
-		// In0 = {7{$random}};
-		// In1 = Input ^ In0;
-		// #20
-		// Reset = 0;
+		#400
+		Reset = 1;
+		//SHAKE-128
+		Input = {1600'h0};
+		Input[0][0] = 64'h000000000000001f; 
+		Input[0][4] = 64'h8000000000000000;
 
-		// #400
-		// Reset = 1;
-		// Input = {128'hffffffffffffffffffffffffffffffff,72'h0123456789abcdef01};
-		// In0 = {7{$random}};
-		// In1 = Input ^ In0;
-		// #20
-		// Reset = 0;
-		// @(posedge Ready)
-		// 	#10
-		// 	if(Output == 200'he090c8c5e596d3421d2fcc695838626cbb365352811837480f) begin
-		// 			$write("------------------PASS---------------\n");
-		// 	end
-		// 	else begin
-		// 		$write("\------------------FAIL---------------\n");
-		// 		$write("%x\n", Output);
-		// 	end
+		#20
+		Reset = 0;
+		@(posedge Ready)
+			#10
+			if(Output[0][0] == 86'h7d828fe8a42b9c7f) begin
+					$write("------------------PASS SHAKE-128 absorb---------------\n");
+			end
 		
-		// #400
-		// Reset = 1;
-		// Input = {200{1'b0}};
-		// In0 = {7{$random}};
-		// In1 = Input ^ In0;
-		// #20
-		// Reset = 0;
-	
+		//Squeeze
+		#400
+		Reset = 1;
+		//SHAKE-128
+		Input = Output;
+
+		#20
+		Reset = 0;
+		@(posedge Ready)
+			#10
+			if(Output[0][0] == 64'hdf1994a6fde17b76) begin
+					$write("------------------PASS SHAKE-128 squeeze1---------------\n");
+			end
 	end
 
 	   always #10 Clock = ~Clock;
