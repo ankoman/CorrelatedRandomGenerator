@@ -1,0 +1,16 @@
+{ signal: [
+    { name: "clk",              wave: "p................"},
+    { name: "rst_n_i",          wave: "0"},
+    { name: "run_i",            wave: "0.10................"},
+    { name: "sreg_kk",          wave: "=..=|.=|.=|.=|.=....", data: [0, 1, 2, 4, 8, 0]},
+    { name: "busy",             wave: "0..1...........0...."},
+    { name: "sample_run",          wave: "0.10|10|10|10|10"},
+    { name: "sample_done",         wave: "0...|10|10|10|10."},
+
+  ],
+  head:{
+    text:'SampleA',
+    tick:-1,
+  },
+  config: { hscale: 1 }
+}
