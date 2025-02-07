@@ -4,6 +4,8 @@
 `define LEN_KEY 128
 `define LEN_MAX_CR 32
 `define ML_KEM_K 2
+`define ML_KEM_Q 3329
+`define ML_KEM_LEN_Q 12
 
 `ifndef TYPES
     `define TYPES
@@ -43,10 +45,12 @@
     package TYPES_KEM;
 
         parameter ML_KEM_K = `ML_KEM_K;
-        typedef logic [255:0][11:0] poly_t;
+        parameter ML_KEM_LEN_Q = `ML_KEM_LEN_Q;
+        parameter ML_KEM_Q = `ML_KEM_Q;
+
+        typedef logic [255:0][ML_KEM_LEN_Q - 1:0] poly_t;
         typedef poly_t [`ML_KEM_K-1:0][`ML_KEM_K-1:0] polymat_t;
         typedef logic [4:0][4:0][64 - 1:0] keccak_1600_t;
-
 
         typedef struct packed {
             logic keygen;

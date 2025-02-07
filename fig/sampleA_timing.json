@@ -1,16 +1,25 @@
 { signal: [
-    { name: "clk_i",              wave: "p................"},
+    { name: "clk_i",              wave: "p...|.....|..............."},
     { name: "rst_n_i",            wave: "0"},
-    { name: "run_i",              wave: "0.10................"},
-    { name: "cnt_kk",            wave: "=..=|.=|.=|.=|.=....", data: [0, 1, 2, 3, 4, 0]},
-    { name: "busy",               wave: "0..1...........0...."},
-    { name: "sample_run",         wave: "0.10|10|10|10|10", node: '..a'},
-    { name: "sample_done",        wave: "0...|10|10|10|10."},
-    { name: "done_o",             wave: "0...|..|..|..|10."},
+    { name: "run_i",              wave: "0.10......|.................."},
+    { name: "cnt_kk",             wave: "=..=|.....|....=|.=|.=|.=....", data: [0, 1, 2, 3, 4, 0]},
+    { name: "busy",               wave: "0..1......|.............0...."},
+    { name: "sample_run",         wave: "0.10|.....|...10|10|10|10", node: '..a'},
+    { name: "sample_done",        wave: "0...|.....|...10|10|10|10."},
+    { name: "done_o",             wave: "0...|.....|.....|..|..|10."},
 
     
   ['sampleNTT',
-  { name: "run_i",         wave: "0.10|10|10|10|10", node: '..b'},
+  { name: "run_i=sample_run",     wave: "0.10|.....|...10|10|10|10", node: '..b'},
+  { name: "xof_rdy",              wave: "0...|.1...|....0|10|10|10"},
+  { name: "sample_start",         wave: "0...|.10..|.....|10|10|10"},
+  { name: "cnt_112",              wave: "=...|..==x|=====|..|..|..", data: [0,1,2,109,110,111,112,0]},
+  { name: "sample_end",           wave: "0...|.....|...10|10|10|10"},
+  { name: "sample_busy",          wave: "0...|..1..|....0|10|10"},
+  { name: "xof_out",              wave: "0.x.|.=...|....0|10|10|10"},
+  { name: "xof_rate",             wave: "0...|..x..|....0|10|10|10"},
+
+
 ]
   ],
   edge: [
