@@ -25,42 +25,46 @@ module sampleA
 
 
     logic [CNT_WIDTH:0] cnt_kk;
-    wire sample_run, sample_rdy, sample_done, busy;
-    logic [K_WIDTH - 1:0] index_i, index_j;
+    wire sample_poly_run, sample_poly_done, busy;
+    logic [K_WIDTH - 1:0] index_i, index_j, latch_i, latch_j;
     poly_t poly_o;
 
     assign busy = |cnt_kk;
-    assign sample_run = run_i || (sample_done && busy);
-    assign sample_done = done_o;
-    assign done_o = cnt_kk[CNT_WIDTH] && sample_done; // ML-KEM-512 specific definition
-    assign index_i = cnt_kk[0]; // ML-KEM-512 specific definition
-    assign index_j = cnt_kk[1]; // ML-KEM-512 specific definition
+    assign sample_poly_run = run_i || (sample_poly_done && busy);
+    assign done_o = cnt_kk[CNT_WIDTH] && sample_poly_done; // ML-KEM-512 specific definition
+    assign index_i = cnt_kk[1]; // ML-KEM-512 specific definition
+    assign index_j = cnt_kk[0]; // ML-KEM-512 specific definition
 
     always_ff @(posedge clk_i) begin
         if(!rst_n_i || done_o) begin
             cnt_kk <= '0;
+            latch_i <= '0;
+            latch_j <= '0;
         end
-        else if(sample_run) begin
+        else if(sample_poly_run) begin
             cnt_kk <= cnt_kk + 1'b1;
+            latch_i <= index_i;
+            latch_j <= index_j;
+
         end
     end
 
     sampleNTT u0(
         .clk_i,
         .rst_n_i,
-        .run_i(sample_run),
+        .run_i(sample_poly_run),
         .rho_i,
-        .index_i_i(8'(index_i)),
-        .index_j_i(8'(index_j)),
-        .done_o(sample_rdy),
+        .index_i_i(8'(latch_i)),
+        .index_j_i(8'(latch_j)),
+        .done_o(sample_poly_done),
         .poly_o
     );
 
     always_ff @(posedge clk_i) begin
         if(!rst_n_i)
             polymat_A_o <= '0;
-        else if (sample_done)
-            polymat_A_o[index_j][index_i] <= poly_o;
+        else if (sample_poly_done)
+            polymat_A_o[latch_i][latch_j] <= poly_o;
     end
 
 endmodule
@@ -74,12 +78,13 @@ module sampleNTT
         input [255:0] rho_i,
         input [7:0] index_i_i,
         input [7:0] index_j_i,
-        output done_o,
+        output logic done_o,
         output poly_t poly_o
     );
 
-    keccak_1600_t xof_in, xof_out;
+    keccak_1600_t xof_in, xof_out, xof_out_conv;
     logic [4:0][63:0] xof_msg;
+    assign xof_out_conv = keccak_1600_conv(xof_out);
     assign xof_msg = {40'd0, 8'h1f, index_i_i, index_j_i, rho_i};
 
     assign xof_in[0][0] = xof_msg[0]; // [63:0]
@@ -108,17 +113,19 @@ module sampleNTT
 
     always_ff @(posedge clk_i) begin
         xof_rdy_prev <= xof_rdy;
+        done_o <= sw_rst;
     end
     wire sample_start = ({xof_rdy_prev, xof_rdy} == 2'b01) ? 1'b1 : 1'b0; // Rising edge. Same time as squeeze done.
     wire sample_end = (cnt_112 == 7'd112) ? 1'b1 : 1'b0;
-    wire sample_busy = |cnt_112;
+    wire sample112_busy = |cnt_112;
+    wire sample_coeff_busy = |cnt_sampled_coeff;
     wire [ML_KEM_LEN_Q - 1:0] coeff = xof_rate[ML_KEM_LEN_Q - 1:0];
     wire is_reject = (coeff > (ML_KEM_Q - 1)) ? 1'b1 : 1'b0;
     wire sel_xor_in = |cnt_squeezed;
-    assign done_o = (cnt_sampled_coeff == 8'hff);
+    wire sw_rst = &cnt_sampled_coeff;
 
     always_ff @(posedge clk_i) begin
-        if(!rst_n_i | done_o) begin
+        if(!rst_n_i | sw_rst) begin
             cnt_squeezed <= '0;
         end
         else if(xof_run) begin
@@ -127,20 +134,20 @@ module sampleNTT
     end
 
     always_ff @(posedge clk_i) begin
-        if(!rst_n_i || sample_end || done_o) begin
+        if(!rst_n_i || sample_end || sw_rst) begin
             cnt_112 <= '0;
         end
-        else if(sample_start | sample_busy) begin
+        else if(sample_start | sample112_busy) begin
             cnt_112 <= cnt_112 + 1'b1;
         end
     end
 
     always_ff @(posedge clk_i) begin
-        if(!rst_n_i || done_o) begin
+        if(!rst_n_i || sw_rst) begin
             poly_o <= '0;
             cnt_sampled_coeff <= '0;
         end
-        else if(sample_busy && !is_reject) begin
+        else if(sample112_busy && !is_reject) begin
             poly_o <= {coeff, poly_o[255:1]};
             cnt_sampled_coeff <= cnt_sampled_coeff + 1'b1;
         end
@@ -151,20 +158,29 @@ module sampleNTT
             xof_rate <= '0;
         end
         else if(sample_start) begin
-            xof_rate <= xof_out[1343:0];
+            xof_rate <= xof_out_conv[1343:0];
         end
-        else if(sample_busy) begin
+        else if(sample112_busy) begin
             xof_rate <= {12'd0, xof_rate[1343:12]};
         end
     end
 
 	keccak_top #(.d(0), .b(1600), .W(64)) xof (
 		.Clock(clk_i), 
-		.Reset((!rst_n_i) | xof_run), 
+		.Reset(xof_run), 
 		.InData(sel_xor_in ? xof_out : xof_in), 
 		.FreshRand(), 
 		.Ready(xof_rdy), 
 		.OutData(xof_out)
 	);
 
+    function automatic keccak_1600_t keccak_1600_conv(input keccak_1600_t din);
+        for (int i = 0; i < 5; i++) begin
+            keccak_1600_conv[0][i] = din[i][0]; // [63:0]
+            keccak_1600_conv[1][i] = din[i][1]; // [127:64]
+            keccak_1600_conv[2][i] = din[i][2]; // [191:128]
+            keccak_1600_conv[3][i] = din[i][3]; // [255:192]
+            keccak_1600_conv[4][i] = din[i][4]; // [319:256]
+        end
+    endfunction
 endmodule

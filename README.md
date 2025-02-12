@@ -5,4 +5,5 @@
 
 - Keccak source `https://github.com/Chair-for-Security-Engineering/Low-Latency_Keccak`
 
-reset下げで動作するので微妙
+- Keccak reset下げで動作するので微妙
+- Keccak reset かけてない

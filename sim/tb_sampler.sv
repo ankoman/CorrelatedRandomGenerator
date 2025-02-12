@@ -43,7 +43,7 @@ module tb_sampler;
         #1000
         rst_n_i <= 0;
         run_i <= 0;
-        rho_i <= 256'h12345;
+        rho_i <= reverse_endian_256(256'hcd03078d0c74faf81a1de464203713aef34ef4e369e8564f48497aaf9d47a9b3);
         #100
         rst_n_i <= 1;
         #5000;
@@ -51,5 +51,15 @@ module tb_sampler;
         #CYCLE
         run_i <= 0;
     end
+
+	function automatic logic [255:0] reverse_endian_256(input logic [255:0] data);
+		logic [255:0] reversed = '0;
+
+		for (int i = 0; i < 32; i++) begin
+			reversed[i*8 +: 8] = data[(32-1-i)*8 +: 8];
+    	end
+    	return reversed;
+	endfunction
+
 
 endmodule
