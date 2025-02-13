@@ -25,12 +25,12 @@ module sampleA
 
 
     logic [CNT_WIDTH:0] cnt_kk;
-    wire sample_poly_run, sample_poly_done, busy;
+    logic sample_poly_run, sample_poly_done, sample_poly_done_d, busy, count;
     logic [K_WIDTH - 1:0] index_i, index_j, latch_i, latch_j;
     poly_t poly_o;
 
-    assign busy = |cnt_kk;
-    assign sample_poly_run = run_i || (sample_poly_done && busy);
+    assign busy = |cnt_kk[1:0];
+    assign count = run_i || (sample_poly_done_d && busy);
     assign done_o = cnt_kk[CNT_WIDTH] && sample_poly_done; // ML-KEM-512 specific definition
     assign index_i = cnt_kk[1]; // ML-KEM-512 specific definition
     assign index_j = cnt_kk[0]; // ML-KEM-512 specific definition
@@ -41,12 +41,16 @@ module sampleA
             latch_i <= '0;
             latch_j <= '0;
         end
-        else if(sample_poly_run) begin
+        else if(count) begin
             cnt_kk <= cnt_kk + 1'b1;
             latch_i <= index_i;
             latch_j <= index_j;
-
         end
+    end
+
+    always_ff @(posedge clk_i) begin
+        sample_poly_run <= count;
+        sample_poly_done_d <= sample_poly_done;
     end
 
     sampleNTT u0(
@@ -107,13 +111,13 @@ module sampleNTT
 
     logic xof_rdy, xof_rdy_prev;
     logic [6:0] cnt_112;
-    logic [7:0] cnt_sampled_coeff, cnt_squeezed;
+    logic [8:0] cnt_sampled_coeff;
+    logic [7:0] cnt_squeezed;
     logic [1343:0] xof_rate;
     wire xof_run = run_i | sample_end;
 
     always_ff @(posedge clk_i) begin
         xof_rdy_prev <= xof_rdy;
-        done_o <= sw_rst;
     end
     wire sample_start = ({xof_rdy_prev, xof_rdy} == 2'b01) ? 1'b1 : 1'b0; // Rising edge. Same time as squeeze done.
     wire sample_end = (cnt_112 == 7'd112) ? 1'b1 : 1'b0;
@@ -122,19 +126,19 @@ module sampleNTT
     wire [ML_KEM_LEN_Q - 1:0] coeff = xof_rate[ML_KEM_LEN_Q - 1:0];
     wire is_reject = (coeff > (ML_KEM_Q - 1)) ? 1'b1 : 1'b0;
     wire sel_xor_in = |cnt_squeezed;
-    wire sw_rst = &cnt_sampled_coeff;
+    assign done_o = cnt_sampled_coeff[8];
 
     always_ff @(posedge clk_i) begin
-        if(!rst_n_i | sw_rst) begin
+        if(!rst_n_i | done_o) begin
             cnt_squeezed <= '0;
         end
-        else if(xof_run) begin
+        else if(sample_start) begin
             cnt_squeezed <= cnt_squeezed + 1'b1;    // If overflowing, then should abort
         end
     end
 
     always_ff @(posedge clk_i) begin
-        if(!rst_n_i || sample_end || sw_rst) begin
+        if(!rst_n_i || sample_end || done_o) begin
             cnt_112 <= '0;
         end
         else if(sample_start | sample112_busy) begin
@@ -143,7 +147,7 @@ module sampleNTT
     end
 
     always_ff @(posedge clk_i) begin
-        if(!rst_n_i || sw_rst) begin
+        if(!rst_n_i || done_o) begin
             poly_o <= '0;
             cnt_sampled_coeff <= '0;
         end
