@@ -60,8 +60,9 @@
 
         typedef struct packed {
             logic trng;
-            logic sampler;
+            logic sampleA;
             logic ntt;
+            logic hashG;
         } kem_module_t;
     endpackage
 `endif 
@@ -92,5 +93,14 @@
         function automatic [255:0] urand_256();
             urand_256 = {$urandom(), $urandom(), $urandom(), $urandom(), $urandom(), $urandom(), $urandom(), $urandom()};
         endfunction
+    
+    	function automatic logic [255:0] reverse_endian_256(input logic [255:0] data);
+		logic [255:0] reversed = '0;
+
+		for (int i = 0; i < 32; i++) begin
+			reversed[i*8 +: 8] = data[(32-1-i)*8 +: 8];
+    	end
+    	return reversed;
+	endfunction
     endpackage
 `endif 

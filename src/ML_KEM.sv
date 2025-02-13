@@ -12,6 +12,7 @@
 
 module ML_KEM 
      import TYPES_KEM::*;
+     import FUNCS::reverse_endian_256;
     (
         input clk_i,
         input rst_n_i,
@@ -25,9 +26,9 @@ module ML_KEM
     always_ff @(posedge clk_i) begin
         en_kem_funcs_prev <= en_kem_funcs_o;
     end
-    assign run_keygen = ({en_kem_funcs_prev[2], en_kem_funcs_o[2]} == 2'b01) ? 1'b1 : 1'b0; // Rising edge
-    assign run_encap  = ({en_kem_funcs_prev[1], en_kem_funcs_o[1]} == 2'b01) ? 1'b1 : 1'b0; // Rising edge
-    assign run_decap  = ({en_kem_funcs_prev[0], en_kem_funcs_o[0]} == 2'b01) ? 1'b1 : 1'b0; // Rising edge
+    assign run_keygen = !en_kem_funcs_prev.keygen & en_kem_funcs_o.keygen;// Rising edge
+    assign run_encap  = !en_kem_funcs_prev.encap & en_kem_funcs_o.encap; // Rising edge
+    assign run_decap  = !en_kem_funcs_prev.decap & en_kem_funcs_o.decap; // Rising edge
 
     FSM_KEM u_fsm_kem (
         .clk_i,
@@ -39,16 +40,17 @@ module ML_KEM
     );
 
     kem_module_t en_kem_modules_o, en_kem_modules_prev, module_done;
-    wire run_trng, run_sampler, run_ntt;
+    wire run_trng, run_sampleA, run_ntt;
     wire [1:0] sel_keygen, sel_all;
     assign sel_all = sel_keygen;
 
     always_ff @(posedge clk_i) begin
         en_kem_modules_prev <= en_kem_modules_o;
     end
-    assign run_trng     = ({en_kem_modules_prev[2], en_kem_modules_o[2]} == 2'b01) ? 1'b1 : 1'b0; // Rising edge
-    assign run_sampler  = ({en_kem_modules_prev[1], en_kem_modules_o[1]} == 2'b01) ? 1'b1 : 1'b0; // Rising edge
-    assign run_ntt      = ({en_kem_modules_prev[0], en_kem_modules_o[0]} == 2'b01) ? 1'b1 : 1'b0; // Rising edge
+    assign run_trng     = !en_kem_modules_prev.trng & en_kem_modules_o.trng; // Rising edge
+    assign run_sampleA  = !en_kem_modules_prev.sampleA & en_kem_modules_o.sampleA; //Rising edge
+    assign run_ntt      = !en_kem_modules_prev.ntt & en_kem_modules_o.ntt; // Rising edge
+    assign run_hashG    = !en_kem_modules_prev.hashG & en_kem_modules_o.hashG; // Rising edge
 
     FSM_KEM_KEYGEN u_fsm_kem_keygen (
         .clk_i,
@@ -84,6 +86,42 @@ module ML_KEM
             end
         end
     end
+
+    logic [511:0] hash_G_out;
+    logic [255:0] r_rho, r_sigma;
+
+    hash_G_KEM u_hash_G(
+         .clk_i,
+         .rst_n_i,
+         .run_i(run_hashG),
+         .in_sel_i(sel_all), // 0: din = 32 bytes, i: din = 64 bytes
+         .k_i(8'(ML_KEM_K)),    // 8 bits of ML_KEM_K
+         .din_i((sel_all) ? 512'hx : {256'hx, reverse_endian_256(r_d)}),
+         .done_o(module_done.hashG),
+         .do_o(hash_G_out)
+    );
+
+    always_ff @(posedge clk_i) begin : DEMUX_hashG
+        if(!rst_n_i) begin
+            r_rho <= '0;
+            r_sigma <= '0;
+        end
+        else begin
+            if(module_done.hashG) begin
+                {r_sigma, r_rho} <= hash_G_out;
+            end
+        end
+    end
+
+    //SampleA
+    sampleA uu0_sampleA(
+        .clk_i,
+        .rst_n_i,
+        .run_i(run_sampleA),
+        .rho_i(r_rho),
+        .done_o(module_done.sampleA),
+        .polymat_A_o()
+    );
 
 endmodule
 
@@ -163,7 +201,7 @@ module FSM_KEM_KEYGEN
     );
 
     typedef enum logic [3:0] {
-        IDLE, TRNG1, TRNG2, WAIT1
+        IDLE, TRNG1, TRNG2, WAIT1, GEN_SEED, SAMPLE_A
     } state_kem_keygen_t;
 
     state_kem_keygen_t current_state, next_state;
@@ -184,6 +222,14 @@ module FSM_KEM_KEYGEN
             end
             TRNG2: begin
                 if (module_done_i.trng)
+                    next_state = GEN_SEED;
+            end
+            GEN_SEED: begin
+                if (module_done_i.hashG)
+                    next_state = SAMPLE_A;
+            end
+            SAMPLE_A: begin
+                if (module_done_i.sampleA)
                     next_state = IDLE;
             end
             default: begin
@@ -201,18 +247,89 @@ module FSM_KEM_KEYGEN
 
     always_comb begin : FSM_KEM_KEYGEN_en_output
         case (current_state)
-            TRNG1:   en_kem_modules_o = 3'b100;
-            TRNG2:   en_kem_modules_o = 3'b100;
-            default: en_kem_modules_o = 3'b000; // default
+            TRNG1:   en_kem_modules_o.trng = 1'b1;
+            TRNG2:   en_kem_modules_o.trng = 1'b1;
+            GEN_SEED:   en_kem_modules_o.hashG = 1'b1;
+            SAMPLE_A:   en_kem_modules_o.sampleA = 1'b1;
+            default: en_kem_modules_o = '0; // default
         endcase
     end
 
     always_comb begin : FSM_KEM_KEYGEN_sel_output
         case (current_state)
-            TRNG1:   sel_o = 2'b00;
-            TRNG2:   sel_o = 2'b01;
-            default: sel_o = 2'b00; // default
+            TRNG1:   sel_o = 2'b00; //r_d
+            TRNG2:   sel_o = 2'b01; //r_z
+            GEN_SEED:   sel_o = 2'b00;
+            default: sel_o = '0; // default
         endcase
     end
 
+endmodule
+
+module hash_G_KEM
+     import TYPES_KEM::*;
+    (
+        input clk_i,
+        input rst_n_i,
+        input run_i,
+        input in_sel_i, // 0: din = 32 bytes, i: din = 64 bytes
+        input [7:0] k_i,    // 8 bits of ML_KEM_K
+        input [7:0][63:0] din_i,
+        output done_o,
+        output [511:0] do_o
+    );
+    
+    //SHA3-512
+    keccak_1600_t hash_in, hash_out, hash_out_conv;
+    logic [256+8-1:0] hash_msg_msb;
+    logic [8:0][63:0] hash_pad_msg;
+    assign hash_msg_msb = (in_sel_i) ? {8'h06, din_i[7:4]} : {248'd0, 8'h06, k_i};
+    assign hash_pad_msg = {8'h80, 48'd0, hash_msg_msb, din_i[3:0]};
+    assign hash_out_conv = keccak_1600_conv(hash_out);
+    assign do_o = hash_out_conv[511:0];
+
+    assign hash_in[0][0] = hash_pad_msg[0]; // [63:0]
+    assign hash_in[1][0] = hash_pad_msg[1]; // [127:64]
+    assign hash_in[2][0] = hash_pad_msg[2]; // [191:128]
+    assign hash_in[3][0] = hash_pad_msg[3]; // [255:192]
+    assign hash_in[4][0] = hash_pad_msg[4]; // [319:256]
+    assign hash_in[0][1] = hash_pad_msg[5]; // [383:320]
+    assign hash_in[1][1] = hash_pad_msg[6]; // [447:384]
+    assign hash_in[2][1] = hash_pad_msg[7]; // [511:448]
+    assign hash_in[3][1] = hash_pad_msg[8]; 
+    assign hash_in[4][1] = '0;
+
+    generate
+        for(genvar i = 2; i < 5; i = i + 1) begin
+            for (genvar j = 0; j < 5; j = j + 1) begin
+                    assign hash_in[j][i] = 64'h0;
+            end
+        end
+    endgenerate
+
+    logic hash_rdy, hash_rdy_prev;
+
+    always_ff @(posedge clk_i) begin
+        hash_rdy_prev <= hash_rdy;
+    end
+    assign done_o = !hash_rdy_prev & hash_rdy; // Rising edge.
+
+	keccak_top #(.d(0), .b(1600), .W(64)) sha3_512 (
+		.Clock(clk_i), 
+		.Reset(run_i), 
+		.InData(hash_in), 
+		.FreshRand(), 
+		.Ready(hash_rdy), 
+		.OutData(hash_out)
+	);
+
+    function automatic keccak_1600_t keccak_1600_conv(input keccak_1600_t din);
+        for (int i = 0; i < 5; i++) begin
+            keccak_1600_conv[0][i] = din[i][0]; // [63:0]
+            keccak_1600_conv[1][i] = din[i][1]; // [127:64]
+            keccak_1600_conv[2][i] = din[i][2]; // [191:128]
+            keccak_1600_conv[3][i] = din[i][3]; // [255:192]
+            keccak_1600_conv[4][i] = din[i][4]; // [319:256]
+        end
+    endfunction
 endmodule
