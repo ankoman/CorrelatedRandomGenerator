@@ -72,6 +72,7 @@
     package FUNCS;
         import TYPES::prng_t;
         import TYPES::width_t;
+        import TYPES_KEM::keccak_1600_t;
         function automatic prng_t make_carry_mask;
             input width_t width_i;
 
@@ -101,6 +102,14 @@
 			reversed[i*8 +: 8] = data[(32-1-i)*8 +: 8];
     	end
     	return reversed;
-	endfunction
+	    endfunction
+
+        function automatic keccak_1600_t keccak_1600_conv(input keccak_1600_t din);
+            for (int i = 0; i < 5; i++) begin
+                for (int j = 0; j < 5; j++) begin
+                    keccak_1600_conv[j][i] = din[i][j]; 
+                end
+            end
+        endfunction
     endpackage
 `endif 

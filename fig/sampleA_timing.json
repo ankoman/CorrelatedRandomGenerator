@@ -26,7 +26,7 @@
     'a~b'
   ],
   head:{
-    text:'SampleA',
+    text:'SampleA (could be wrong)',
     tick:-1,
   },
   config: { hscale: 1 }

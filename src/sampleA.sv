@@ -29,7 +29,7 @@ module sampleA
     logic [K_WIDTH - 1:0] index_i, index_j, latch_i, latch_j;
     poly_t poly_o;
 
-    assign busy = |cnt_kk[1:0];
+    assign busy = |cnt_kk[1:0]; // ML-KEM-512 specific definition
     assign count = run_i || (sample_poly_done_d && busy);
     assign done_o = cnt_kk[CNT_WIDTH] && sample_poly_done; // ML-KEM-512 specific definition
     assign index_i = cnt_kk[1]; // ML-KEM-512 specific definition
@@ -75,6 +75,7 @@ endmodule
 
 module sampleNTT
      import TYPES_KEM::*;
+     import FUNCS::keccak_1600_conv;
     (
         input clk_i,
         input rst_n_i,
@@ -177,14 +178,4 @@ module sampleNTT
 		.Ready(xof_rdy), 
 		.OutData(xof_out)
 	);
-
-    function automatic keccak_1600_t keccak_1600_conv(input keccak_1600_t din);
-        for (int i = 0; i < 5; i++) begin
-            keccak_1600_conv[0][i] = din[i][0]; // [63:0]
-            keccak_1600_conv[1][i] = din[i][1]; // [127:64]
-            keccak_1600_conv[2][i] = din[i][2]; // [191:128]
-            keccak_1600_conv[3][i] = din[i][3]; // [255:192]
-            keccak_1600_conv[4][i] = din[i][4]; // [319:256]
-        end
-    endfunction
 endmodule
