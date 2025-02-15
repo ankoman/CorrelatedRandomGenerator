@@ -61,6 +61,7 @@
         typedef struct packed {
             logic trng;
             logic sampleA;
+            logic sampleCBD_2k;
             logic ntt;
             logic hashG;
         } kem_module_t;

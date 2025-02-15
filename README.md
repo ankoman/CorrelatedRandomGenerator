@@ -5,6 +5,8 @@
 
 - Keccak source `https://github.com/Chair-for-Security-Engineering/Low-Latency_Keccak`
 
+# TBD
 - Keccak reset下げで動作するので微妙
 - Keccak reset かけてない
 - SampleCBD後の変数に12bitは不要。NTTの多くは12bitフル精度いらない（片入力は3bitとかでいい）
+- 各モジュールでレジスタに保存した後さらにレジスタに入れているので無駄

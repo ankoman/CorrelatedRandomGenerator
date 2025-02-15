@@ -40,7 +40,7 @@ module ML_KEM
     );
 
     kem_module_t en_kem_modules_o, en_kem_modules_prev, module_done;
-    wire run_trng, run_sampleA, run_ntt;
+    wire run_trng, run_sampleA, run_ntt, run_sampleCBD_2k;
     wire [1:0] sel_keygen, sel_all;
     assign sel_all = sel_keygen;
 
@@ -51,6 +51,8 @@ module ML_KEM
     assign run_sampleA  = !en_kem_modules_prev.sampleA & en_kem_modules_o.sampleA; //Rising edge
     assign run_ntt      = !en_kem_modules_prev.ntt & en_kem_modules_o.ntt; // Rising edge
     assign run_hashG    = !en_kem_modules_prev.hashG & en_kem_modules_o.hashG; // Rising edge
+    assign run_sampleCBD_2k = !en_kem_modules_prev.sampleCBD_2k & en_kem_modules_o.sampleCBD_2k; // Rising edge
+
 
     FSM_KEM_KEYGEN u_fsm_kem_keygen (
         .clk_i,
@@ -122,6 +124,17 @@ module ML_KEM
         .done_o(module_done.sampleA),
         .polymat_A_o()
     );
+
+   sampleCBD_2k u_sampleCBD_2k(
+        .clk_i,
+        .rst_n_i,
+        .run_i(run_sampleCBD_2k),
+        .seed_i(r_sigma),
+        .eta_i(),    // 0: eta1, 1: eta2
+        .done_o(module_done.sampleCBD_2k),
+        .polyvec_o()
+    );
+
 
 endmodule
 
@@ -201,7 +214,7 @@ module FSM_KEM_KEYGEN
     );
 
     typedef enum logic [3:0] {
-        IDLE, TRNG1, TRNG2, WAIT1, GEN_SEED, SAMPLE_A
+        IDLE, TRNG1, TRNG2, WAIT1, GEN_SEED, SAMPLE_A, SAMPLE_CBD_2K
     } state_kem_keygen_t;
 
     state_kem_keygen_t current_state, next_state;
@@ -230,6 +243,10 @@ module FSM_KEM_KEYGEN
             end
             SAMPLE_A: begin
                 if (module_done_i.sampleA)
+                    next_state = SAMPLE_CBD_2K;
+            end
+            SAMPLE_CBD_2K: begin
+                if (module_done_i.sampleCBD_2k)
                     next_state = IDLE;
             end
             default: begin
@@ -251,6 +268,7 @@ module FSM_KEM_KEYGEN
             TRNG2:   en_kem_modules_o.trng = 1'b1;
             GEN_SEED:   en_kem_modules_o.hashG = 1'b1;
             SAMPLE_A:   en_kem_modules_o.sampleA = 1'b1;
+            SAMPLE_CBD_2K:   en_kem_modules_o.sampleCBD_2k = 1'b1;
             default: en_kem_modules_o = '0; // default
         endcase
     end
