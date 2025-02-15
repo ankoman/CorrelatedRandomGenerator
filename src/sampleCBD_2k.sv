@@ -98,10 +98,11 @@ module sampleCBD
         end
     end
 
-    keccak_1600_t prf_in, prf_out, prf_out_conv;
+    keccak_1600_t prf_in;
+    logic [1599:0] prf_out_1600, prf_out_conv;
     logic [4:0][63:0] prf_msg;
     logic [1087:0] prf_rate;
-    assign prf_out_conv = keccak_1600_conv(prf_out);
+    assign prf_out_conv = keccak_1600_conv(prf_out_1600);
     assign prf_msg = {48'd0, 8'h1f, N_i, seed_i};
 
     assign prf_in[0][0] = prf_msg[0]; // [63:0]
@@ -126,10 +127,10 @@ module sampleCBD
 	keccak_top #(.d(0), .b(1600), .W(64)) prf (
 		.Clock(clk_i), 
 		.Reset(prf_run), 
-		.InData(sreg_squeeze[0] ? prf_out : prf_in), 
+		.InData(sreg_squeeze[0] ? prf_out_1600 : prf_in), 
 		.FreshRand(), 
 		.Ready(prf_rdy), 
-		.OutData(prf_out)
+		.OutData(prf_out_1600)
 	);
 
     // Output
@@ -141,16 +142,16 @@ module sampleCBD
             if(i < 181)
                 assign poly_o[i] = 8'(signed'(cbd_coeffs_1st[i]));
             else if(i == 181)
-                assign poly_o[i] = 8'(signed'(table_cbd3({prf_out[3:0], rem_of_1st_squeeze})));
+                assign poly_o[i] = 8'(signed'(table_cbd3({prf_out_conv[3:0], rem_of_1st_squeeze})));
             else
-                assign poly_o[i] = 8'(signed'(table_cbd3(prf_out[(i-182)*6 + 4 +: 6])));
+                assign poly_o[i] = 8'(signed'(table_cbd3(prf_out_conv[(i-182)*6 + 4 +: 6])));
         end
     endgenerate
 
     always_ff @(posedge clk_i) begin
         if(prf_done) begin
-                cbd_coeffs_1st <= apply_cbd3table_1st(prf_out[1085:0]);
-                rem_of_1st_squeeze <= prf_out[1087:1086];
+                cbd_coeffs_1st <= apply_cbd3table_1st(prf_out_conv[1085:0]);
+                rem_of_1st_squeeze <= prf_out_conv[1087:1086];
         end
     end
 
