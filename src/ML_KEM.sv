@@ -89,6 +89,7 @@ module ML_KEM
         end
     end
 
+    //Hash_G module
     logic [511:0] hash_G_out;
     logic [255:0] r_rho, r_sigma;
 
@@ -115,7 +116,7 @@ module ML_KEM
         end
     end
 
-    //SampleA
+    //SampleA module
     sampleA uu0_sampleA(
         .clk_i,
         .rst_n_i,
@@ -125,17 +126,43 @@ module ML_KEM
         .polymat_A_o()
     );
 
-   sampleCBD_2k u_sampleCBD_2k(
+    //SampleCBD module
+    poly_t [2*ML_KEM_K-1:0] w_polyvec, polyvec, polyvec_ntt;
+    sampleCBD_2k u_sampleCBD_2k(
         .clk_i,
         .rst_n_i,
         .run_i(run_sampleCBD_2k),
         .seed_i(r_sigma),
         .eta_i(),    // 0: eta1, 1: eta2
         .done_o(module_done.sampleCBD_2k),
-        .polyvec_o()
+        .polyvec_o(polyvec)
     );
 
+    always @(posedge clk_i)begin
+        if(run_ntt)
+            polyvec <= w_polyvec;
+        else
+            polyvec <= {polyvec[255:1]}
+    end
 
+    //NTT module
+    KyberHPM1PE u_NTT_pe1 (
+        .clk(clk_i),
+        .reset(rst_n_i),
+        .load_a_f,
+        .load_a_i,
+        .load_b_f,
+        .load_b_i,
+        .read_a,
+        .read_b,
+        .start_ab,
+        .start_fntt,
+        .start_pwm2,
+        .start_intt,
+        .din(),
+        .dout(),
+        .done()
+    );
 endmodule
 
 module FSM_KEM
@@ -214,7 +241,7 @@ module FSM_KEM_KEYGEN
     );
 
     typedef enum logic [3:0] {
-        IDLE, TRNG1, TRNG2, WAIT1, GEN_SEED, SAMPLE_A, SAMPLE_CBD_2K
+        IDLE, TRNG1, TRNG2, WAIT1, GEN_SEED, SAMPLE_A, SAMPLE_CBD_2K, NTT
     } state_kem_keygen_t;
 
     state_kem_keygen_t current_state, next_state;
@@ -247,6 +274,10 @@ module FSM_KEM_KEYGEN
             end
             SAMPLE_CBD_2K: begin
                 if (module_done_i.sampleCBD_2k)
+                    next_state = NTT;
+            end
+            NTT: begin
+                if (module_done_i.ntt)
                     next_state = IDLE;
             end
             default: begin
@@ -269,6 +300,7 @@ module FSM_KEM_KEYGEN
             GEN_SEED:   en_kem_modules_o.hashG = 1'b1;
             SAMPLE_A:   en_kem_modules_o.sampleA = 1'b1;
             SAMPLE_CBD_2K:   en_kem_modules_o.sampleCBD_2k = 1'b1;
+            NTT:   en_kem_modules_o.ntt = 1'b1;
             default: en_kem_modules_o = '0; // default
         endcase
     end
