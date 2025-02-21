@@ -135,14 +135,14 @@ module ML_KEM
         .seed_i(r_sigma),
         .eta_i(),    // 0: eta1, 1: eta2
         .done_o(module_done.sampleCBD_2k),
-        .polyvec_o(polyvec)
+        .polyvec_o(polyvec) //  2k polynomials
     );
 
     always @(posedge clk_i)begin
         if(run_ntt)
             polyvec <= w_polyvec;
         else
-            polyvec <= {polyvec[255:1]}
+            polyvec <= {12'd0, polyvec[255:1]}
     end
 
     //NTT module

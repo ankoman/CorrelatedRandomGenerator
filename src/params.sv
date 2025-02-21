@@ -52,6 +52,10 @@
         typedef poly_t [`ML_KEM_K-1:0][`ML_KEM_K-1:0] polymat_t;
         typedef logic [4:0][4:0][64 - 1:0] keccak_1600_t;
 
+        typedef enum logic [2:0] {
+            NTT_a, NTT_b, PWM,
+        } ntt_mode_t;
+
         typedef struct packed {
             logic keygen;
             logic encap;
