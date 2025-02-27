@@ -101,17 +101,13 @@ module NTT_wrapper
         output done_o
     );
 
-    logic load_a, load_b;
-    assign load_a = run_i;
-    assign load_b = cnt_256_done_d & (mode_i == PWM);
-
     logic [8:0] cnt_256;
-    wire cnt_256_busy = |cnt_256[7:0] || run_i || done_nttmod_d;
+    wire cnt_256_busy = |cnt_256[7:0] || run.load_a || run.load_b || run.read_a;
     wire cnt_256_done = cnt_256[8];
-    logic cnt_256_done_d, done_nttmod, done_nttmod_d;
+    logic cnt_256_done_d, cnt_256_done_dd, done_nttmod;
     always @(posedge clk_i) begin
         cnt_256_done_d <= cnt_256_done;
-        done_nttmod_d <= done_nttmod;
+        cnt_256_done_dd <= cnt_256_done_d;
     end
 
     always @(posedge clk_i) begin
@@ -124,9 +120,9 @@ module NTT_wrapper
     poly_t poly_in;
     wire [11:0] din = poly_in[255];
     always @(posedge clk_i)begin
-        if(load_a)
+        if(run.load_a)
             poly_in <= poly_a_i;
-        else if (load_b)
+        else if (run.load_b)
             poly_in <= poly_b_i;
         else
             poly_in <= {poly_in[254:0], 12'd0};
@@ -140,21 +136,20 @@ module NTT_wrapper
             poly_c_o <= {dout, poly_c_o[255:1]};
     end
 
-    logic state_is_ntt;
     //NTT module
     KyberHPM1PE u_NTT_pe1 (
         .clk(clk_i),
         .reset(!rst_n_i),
-        .load_a_f(load_a),
+        .load_a_f(run.load_a),
         .load_a_i(1'b0),
-        .load_b_f(load_b),
+        .load_b_f(run.load_b),
         .load_b_i(1'b0),
-        .read_a(done_nttmod_d),
+        .read_a(done_nttmod),
         .read_b(1'b0),
         .start_ab(1'b0),
-        .start_fntt(cnt_256_done_d & state_is_ntt),
-        .start_pwm2(1'b0),
-        .start_intt(1'b0),
+        .start_fntt(run.ntt),
+        .start_pwm2(run.pwm),
+        .start_intt(run.intt),
         .din,
         .dout,
         .done(done_nttmod)
@@ -164,7 +159,10 @@ module NTT_wrapper
     typedef enum logic [2:0] {
         IDLE, LOAD_B, LOAD_A, NTT, INTT, PWM, READ_A
     } state_ntt_t;
-    assign state_is_ntt = current_state == NTT;
+
+    logic state_is_idle;
+    assign state_is_idle = current_state == IDLE;
+    assign done_o = state_is_idle && cnt_256_done_dd;
 
     state_ntt_t current_state, next_state;
 
@@ -173,13 +171,21 @@ module NTT_wrapper
         case (current_state)
             IDLE: begin
                 if (run_i)
-                    next_state = (mode_i == NTT_a) ? LOAD_A : IDLE;
+                    next_state = (mode_i == NTT_a) ? LOAD_A : (mode_i == PWM_ab) ? LOAD_B : IDLE;
+            end
+            LOAD_B: begin
+                if (cnt_256_done_d)
+                    next_state = LOAD_A;
             end
             LOAD_A: begin
-                if (cnt_256_done)
-                    next_state = NTT;
+                if (cnt_256_done_d)
+                    next_state = (mode_i == NTT_a) ? NTT : (mode_i == PWM_ab) ? PWM : IDLE;
             end
             NTT: begin
+                if (done_nttmod)
+                    next_state = READ_A;
+            end
+            PWM: begin
                 if (done_nttmod)
                     next_state = READ_A;
             end
@@ -200,17 +206,30 @@ module NTT_wrapper
             current_state <= next_state;
     end
 
-endmodule
-
-module FSM_NTT
-     import TYPES_KEM::*;
-    (
-        input clk_i,
-        input rst_n_i,
-        input run_i,
-        input ntt_mode_t mode_i,
-        output kem_mode_t en_kem_funcs_o
-    );
-
+    typedef struct packed {
+        logic load_a;
+        logic load_b;
+        logic read_a;
+        logic ntt;
+        logic pwm;
+        logic intt;
+    } ntt_run_t;
+    ntt_run_t run;
+    always_ff @(posedge clk_i) begin : FSM_NTT_run
+        if (!rst_n_i)
+            run <= '0;
+        else if(current_state != next_state) begin
+            case (next_state)
+                LOAD_B: run.load_b = 1'b1;
+                LOAD_A: run.load_a = 1'b1;
+                READ_A: run.read_a = 1'b1;
+                NTT:    run.ntt = 1'b1;
+                PWM:    run.pwm = 1'b1;
+                default: run = 'd0; // default
+            endcase
+        end
+        else
+            run <= '0;
+    end
 
 endmodule

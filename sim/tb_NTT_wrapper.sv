@@ -29,7 +29,7 @@ module tb_NTT_wrapper;
         .rst_n_i,
         .run_i,
         .poly_a_i(poly_t'(dina)),
-        .poly_b_i,
+        .poly_b_i(poly_t'(dinb)),
         .mode_i,
         .poly_c_o,
         .done_o
@@ -44,10 +44,11 @@ module tb_NTT_wrapper;
     initial begin
         rst_n_i = 0;
         // Test data for NTT
-        $readmemh("C:/Users/sakamoto/Desktop/CorrelatedRandomGenerator/src_others/kyber-polmul-hw-master/pe1/test_pe1/KYBER_DIN0.txt" , dina);
-        $readmemh("C:/Users/sakamoto/Desktop/CorrelatedRandomGenerator/src_others/kyber-polmul-hw-master/pe1/test_pe1/KYBER_DIN1.txt" , dinb);
-        $readmemh("C:/Users/sakamoto/Desktop/CorrelatedRandomGenerator/src_others/kyber-polmul-hw-master/pe1/test_pe1/KYBER_DIN0_MFNTT.txt" , doua);
-        $readmemh("C:/Users/sakamoto/Desktop/CorrelatedRandomGenerator/src_others/kyber-polmul-hw-master/pe1/test_pe1/KYBER_DIN1_MFNTT.txt" , doua);
+        //C:\Users\sakamoto\Desktop\prj\CorrelatedRandomGenerator\src_others\kyber-polmul-hw-master
+        $readmemh("C:/Users/sakamoto/Desktop/prj/CorrelatedRandomGenerator/src_others/kyber-polmul-hw-master/pe1/test_pe1/KYBER_DIN0.txt" , dina);
+        $readmemh("C:/Users/sakamoto/Desktop/prj/CorrelatedRandomGenerator/src_others/kyber-polmul-hw-master/pe1/test_pe1/KYBER_DIN1.txt" , dinb);
+        $readmemh("C:/Users/sakamoto/Desktop/prj/CorrelatedRandomGenerator/src_others/kyber-polmul-hw-master/pe1/test_pe1/KYBER_DIN0_MFNTT.txt" , doua);
+        $readmemh("C:/Users/sakamoto/Desktop/prj/CorrelatedRandomGenerator/src_others/kyber-polmul-hw-master/pe1/test_pe1/KYBER_DIN1_MFNTT.txt" , doua);
         #20;
         rst_n_i = 1;
         #CLK_PERIOD;
@@ -58,7 +59,15 @@ module tb_NTT_wrapper;
         #CLK_PERIOD;
         run_i = 0;
         wait(done_o == 1);
+        #CLK_PERIOD;
 
+        //PWM
+        mode_i = PWM_ab;
+        run_i = 1;
+        #CLK_PERIOD;
+        run_i = 0;
+        wait(done_o == 1);
+        #CLK_PERIOD;
     end
 
     // Monitor

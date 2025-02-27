@@ -138,31 +138,6 @@ module ML_KEM
         .polyvec_o(polyvec) //  2k polynomials
     );
 
-    always @(posedge clk_i)begin
-        if(run_ntt)
-            polyvec <= w_polyvec;
-        else
-            polyvec <= {12'd0, polyvec[255:1]}
-    end
-
-    //NTT module
-    KyberHPM1PE u_NTT_pe1 (
-        .clk(clk_i),
-        .reset(rst_n_i),
-        .load_a_f,
-        .load_a_i,
-        .load_b_f,
-        .load_b_i,
-        .read_a,
-        .read_b,
-        .start_ab,
-        .start_fntt,
-        .start_pwm2,
-        .start_intt,
-        .din(),
-        .dout(),
-        .done()
-    );
 endmodule
 
 module FSM_KEM
