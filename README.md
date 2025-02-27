@@ -10,3 +10,5 @@
 - Keccak reset かけてない
 - SampleCBD後の変数に12bitは不要。NTTの多くは12bitフル精度いらない（片入力は3bitとかでいい）
 - 各モジュールでレジスタに保存した後さらにレジスタに入れているので無駄
+- NTTのロード部分は最適化の余地あり
+- negative/positive reset混載

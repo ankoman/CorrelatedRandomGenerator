@@ -53,7 +53,7 @@
         typedef logic [4:0][4:0][64 - 1:0] keccak_1600_t;
 
         typedef enum logic [2:0] {
-            NTT_a, NTT_b, PWM,
+            NTT_a, NTT_b, PWM_ab, INTT_a
         } ntt_mode_t;
 
         typedef struct packed {
