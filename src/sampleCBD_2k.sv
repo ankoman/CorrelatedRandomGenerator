@@ -82,10 +82,10 @@ module sampleCBD
     end
     assign prf_run = run_i || (prf_done & !sreg_squeeze[1]);
     assign prf_done = !prf_rdy_prev & prf_rdy; // Rising edge. 
-    // always_ff @(posedge clk_i) begin
-    //     done_o <= prf_done & sreg_squeeze[1];
-    // end
-    assign done_o = prf_done & sreg_squeeze[1];
+    always_ff @(posedge clk_i) begin
+        done_o <= prf_done & sreg_squeeze[1];
+    end
+    //assign done_o = prf_done & sreg_squeeze[1];
 
     logic [1:0] sreg_squeeze;
 
