@@ -24,6 +24,57 @@ module LOM
         input kem_mode_t mode_i
     );
 
+    // Counters
+    logic [$bits(ML_KEM_K):0] cnt_k;
+    wire cnt_k_done = cnt_k[$bits(ML_KEM_K)];
+    wire count = run.ntt;
+
+    always @(posedge clk_i) begin
+        if(!rst_n_i || cnt_k_done)
+            cnt_k <= '0;
+        else if(count)
+            cnt_k <= cnt_k + 1'b1;
+    end
+
+    // Input selectors
+    poly_t poly_a_i, poly_b_i;
+    always_comb begin : INPUT_SEL_A
+        case (current_state)
+            NTT_s: poly_a_i = polyvec_s_i[cnt_k];
+            NTT_e: poly_a_i = polyvec_e_i[cnt_k];
+            default: poly_a_i = 'x;
+        endcase
+    end
+
+    always_comb begin : INPUT_SEL_B
+        case (current_state)
+            default: poly_b_i = 'x;
+        endcase
+    end
+
+    // NTT mode selector
+    ntt_mode_t ntt_mode;
+    always_comb begin : NTT_MODE_SEL
+        case (current_state)
+            NTT_s: ntt_mode = NTT_a;
+            NTT_e: ntt_mode = NTT_a;
+            default: ntt_mode = NTT_a;
+        endcase
+    end
+
+    logic ntt_done;
+    NTT_wrapper u_ntt(
+        .clk_i,
+        .rst_n_i,
+        .run_i(run.ntt),
+        .poly_a_i,
+        .poly_b_i,
+        .mode_i(ntt_mode),
+        .poly_c_o(),
+        .done_o(ntt_done)
+    );
+
+    //FSM
     typedef enum logic [3:0] {
         IDLE, 
         NTT_s, NTT_e, MUL_As,   // Keygen
@@ -32,23 +83,17 @@ module LOM
     } state_lom_t;
 
     state_lom_t current_state, next_state;
-    wire run_submod = current_state != next_state;
 
     always_comb begin : FSM_LOM
         next_state = current_state;     //default
         case (current_state)
             IDLE: begin
                 if (run_i)
-                    next_state = (mode_i.keygen) ? NTT_s : (mode_i.encap) ? NTT_r : IDLE;
+                    next_state = (mode_i.keygen) ? NTT_s : IDLE;
             end
-            // Enc
             NTT_s: begin
-                if (polyvec_ntt_done)
+                if (cnt_k_done)
                     next_state = NTT_e;
-            end
-            NTT_e: begin
-                if (polyvec_ntt_done)
-                    next_state = MUL_As;
             end
             default: begin
                 next_state = IDLE;
@@ -63,29 +108,22 @@ module LOM
             current_state <= next_state;
     end
 
-    logic [ML_KEM_K:0] sreg_k;
-    wire polyvec_ntt_done = sreg_k[ML_KEM_K];
-
-    always @(posedge clk_i) begin
-        if(!rst_n_i) begin
-            sreg_k <= '0;
+    typedef struct packed {
+        logic ntt;
+    } lom_run_t;
+    lom_run_t run;
+    always_ff @(posedge clk_i) begin : FSM_LOM_run
+        if (!rst_n_i)
+            run <= '0;
+        else if((current_state != next_state) || ntt_done) begin
+            case (next_state)
+                NTT_s: run.ntt = 1'b1;
+                default: run = 'd0; // default
+            endcase
         end
-        else if (run_submod || 1) begin
-            sreg_k <= {sreg_k[$bits(sreg_k)-2:0], run_submod};
-        end
+        else
+            run <= '0;
     end
-
-    logic [8:0] cnt_256;
-    wire cnt_256_busy = |cnt_256[7:0] || run_submod;
-    wire cnt_256_done = cnt_256[8];
-
-    always @(posedge clk_i) begin
-        if(!rst_n_i || cnt_256_done)
-            cnt_256 <= '0;
-        else if (cnt_256_busy)
-            cnt_256 <= cnt_256 + 1'b1;
-    end
-
 endmodule
 
 module NTT_wrapper

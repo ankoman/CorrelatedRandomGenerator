@@ -25,8 +25,7 @@ module ML_KEM
     always_ff @(posedge clk_i) begin
         en_kem_funcs_prev <= en_kem_funcs_o;
     end
-    assign run_kem_func = (~en_kem_funcs_prev) & en_kem_funcs_o;// Rising edge
-
+    assign run_kem_func = (~en_kem_funcs_prev) & en_kem_funcs_o; // Rising edge
 
     FSM_KEM u_fsm_kem (
         .clk_i,
@@ -109,17 +108,23 @@ module ML_KEM
     end
 
     //SampleA module
+    polymat_t polymat_A_o, r_polymat_A;
     sampleA uu0_sampleA(
         .clk_i,
         .rst_n_i,
         .run_i(run_module.sampleA),
         .rho_i(r_rho),
         .done_o(module_done.sampleA),
-        .polymat_A_o()
+        .polymat_A_o
     );
 
+    always_ff @(posedge clk_i) begin
+        if(module_done.sampleA) 
+            r_polymat_A <= polymat_A_o;
+    end
+
     //SampleCBD module
-    poly_t [2*ML_KEM_K-1:0] w_polyvec, polyvec, polyvec_ntt;
+    poly_t [2*ML_KEM_K-1:0] polyvec_o, r_polyvec_2k;
     sampleCBD_2k u_sampleCBD_2k(
         .clk_i,
         .rst_n_i,
@@ -127,7 +132,25 @@ module ML_KEM
         .seed_i(r_sigma),
         .eta_i(),    // 0: eta1, 1: eta2
         .done_o(module_done.sampleCBD_2k),
-        .polyvec_o(polyvec) //  2k polynomials
+        .polyvec_o //  2k polynomials
+    );
+
+    always_ff @(posedge clk_i) begin
+        if(module_done.sampleCBD_2k) 
+            r_polyvec_2k <= polyvec_o;
+    end
+
+    // NTT module
+    LOM u_lom(
+        .clk_i,
+        .rst_n_i,
+        .run_i(run_module.lom),
+        .polyvec_s_i(r_polyvec_2k[ML_KEM_K-1:0]),
+        .polyvec_e_i(r_polyvec_2k[ML_KEM_K*2-1:ML_KEM_K]),
+        .polyvec_r_i(),
+        .polymat_A_i(r_polymat_A),
+        .polyvec_t_i(),
+        .mode_i(mode_i)
     );
 
 endmodule
@@ -208,7 +231,7 @@ module FSM_KEM_KEYGEN
     );
 
     typedef enum logic [3:0] {
-        IDLE, TRNG1, TRNG2, WAIT1, GEN_SEED, SAMPLE_A, SAMPLE_CBD_2K, NTT
+        IDLE, TRNG1, TRNG2, WAIT1, GEN_SEED, SAMPLE_A, SAMPLE_CBD_2K, MAKE_T
     } state_kem_keygen_t;
 
     state_kem_keygen_t current_state, next_state;
@@ -241,10 +264,10 @@ module FSM_KEM_KEYGEN
             end
             SAMPLE_CBD_2K: begin
                 if (module_done_i.sampleCBD_2k)
-                    next_state = NTT;
+                    next_state = MAKE_T;
             end
-            NTT: begin
-                if (module_done_i.ntt)
+            MAKE_T: begin
+                if (module_done_i.lom)
                     next_state = IDLE;
             end
             default: begin
@@ -267,7 +290,7 @@ module FSM_KEM_KEYGEN
             GEN_SEED:   en_kem_modules_o.hashG = 1'b1;
             SAMPLE_A:   en_kem_modules_o.sampleA = 1'b1;
             SAMPLE_CBD_2K:   en_kem_modules_o.sampleCBD_2k = 1'b1;
-            NTT:   en_kem_modules_o.ntt = 1'b1;
+            MAKE_T:   en_kem_modules_o.lom = 1'b1;
             default: en_kem_modules_o = '0; // default
         endcase
     end

@@ -66,8 +66,8 @@
             logic trng;
             logic sampleA;
             logic sampleCBD_2k;
-            logic ntt;
             logic hashG;
+            logic lom;
         } kem_module_t;
     endpackage
 `endif 

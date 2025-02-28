@@ -52,7 +52,7 @@ module tb_ML_KEM;
         run_i <= 0;
 
         #1000; 
-        $finish;
+        //$finish;
     end
 
 endmodule
