@@ -102,7 +102,9 @@ module NTT_wrapper
     );
 
     logic [8:0] cnt_256;
-    wire cnt_256_busy = |cnt_256[7:0] || run.load_a || run.load_b || run.read_a;
+    wire run_load_a = run.load_a_f || run.load_a_i;
+    wire run_load_b = run.load_b_f || run.load_b_i;
+    wire cnt_256_busy = |cnt_256[7:0] || run_load_a || run_load_b || run.read_a;
     wire cnt_256_done = cnt_256[8];
     logic cnt_256_done_d, cnt_256_done_dd, done_nttmod;
     always @(posedge clk_i) begin
@@ -120,9 +122,9 @@ module NTT_wrapper
     poly_t poly_in;
     wire [11:0] din = poly_in[255];
     always @(posedge clk_i)begin
-        if(run.load_a)
+        if(run_load_a)
             poly_in <= poly_a_i;
-        else if (run.load_b)
+        else if (run_load_b)
             poly_in <= poly_b_i;
         else
             poly_in <= {poly_in[254:0], 12'd0};
@@ -140,10 +142,10 @@ module NTT_wrapper
     KyberHPM1PE u_NTT_pe1 (
         .clk(clk_i),
         .reset(!rst_n_i),
-        .load_a_f(run.load_a),
-        .load_a_i(1'b0),
-        .load_b_f(run.load_b),
-        .load_b_i(1'b0),
+        .load_a_f(run.load_a_f),
+        .load_a_i(run.load_a_i),
+        .load_b_f(run.load_b_f),
+        .load_b_i(run.load_b_i),
         .read_a(done_nttmod),
         .read_b(1'b0),
         .start_ab(1'b0),
@@ -156,8 +158,8 @@ module NTT_wrapper
     );
 
     //FSM
-    typedef enum logic [2:0] {
-        IDLE, LOAD_B, LOAD_A, NTT, INTT, PWM, READ_A
+    typedef enum logic [3:0] {
+        IDLE, LOAD_A_F, LOAD_B_F, LOAD_A_I, LOAD_B_I, NTT, INTT, PWM, READ_A
     } state_ntt_t;
 
     logic state_is_idle;
@@ -171,15 +173,19 @@ module NTT_wrapper
         case (current_state)
             IDLE: begin
                 if (run_i)
-                    next_state = (mode_i == NTT_a) ? LOAD_A : (mode_i == PWM_ab) ? LOAD_B : IDLE;
+                    next_state = (mode_i == NTT_a) ? LOAD_A_F : (mode_i == PWM_ab) ? LOAD_A_I : IDLE;
             end
-            LOAD_B: begin
+            LOAD_A_F: begin
                 if (cnt_256_done_d)
-                    next_state = LOAD_A;
+                    next_state = (mode_i == NTT_a) ? NTT : IDLE;
             end
-            LOAD_A: begin
+            LOAD_A_I: begin
                 if (cnt_256_done_d)
-                    next_state = (mode_i == NTT_a) ? NTT : (mode_i == PWM_ab) ? PWM : IDLE;
+                    next_state = LOAD_B_I;
+            end
+            LOAD_B_I: begin
+                if (cnt_256_done_d)
+                    next_state = PWM;
             end
             NTT: begin
                 if (done_nttmod)
@@ -207,8 +213,10 @@ module NTT_wrapper
     end
 
     typedef struct packed {
-        logic load_a;
-        logic load_b;
+        logic load_a_f;
+        logic load_b_f;
+        logic load_a_i;
+        logic load_b_i;
         logic read_a;
         logic ntt;
         logic pwm;
@@ -220,8 +228,10 @@ module NTT_wrapper
             run <= '0;
         else if(current_state != next_state) begin
             case (next_state)
-                LOAD_B: run.load_b = 1'b1;
-                LOAD_A: run.load_a = 1'b1;
+                LOAD_A_F: run.load_a_f = 1'b1;
+                LOAD_B_F: run.load_b_f = 1'b1;
+                LOAD_A_I: run.load_a_i = 1'b1;
+                LOAD_B_I: run.load_b_i = 1'b1;
                 READ_A: run.read_a = 1'b1;
                 NTT:    run.ntt = 1'b1;
                 PWM:    run.pwm = 1'b1;
