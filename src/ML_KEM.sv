@@ -20,15 +20,13 @@ module ML_KEM
         input kem_mode_t mode_i
     );
 
-    kem_mode_t done, en_kem_funcs_o, en_kem_funcs_prev;
-    wire run_keygen, run_encap, run_decap;
+    kem_mode_t done, en_kem_funcs_o, en_kem_funcs_prev, run_kem_func;;
 
     always_ff @(posedge clk_i) begin
         en_kem_funcs_prev <= en_kem_funcs_o;
     end
-    assign run_keygen = !en_kem_funcs_prev.keygen & en_kem_funcs_o.keygen;// Rising edge
-    assign run_encap  = !en_kem_funcs_prev.encap & en_kem_funcs_o.encap; // Rising edge
-    assign run_decap  = !en_kem_funcs_prev.decap & en_kem_funcs_o.decap; // Rising edge
+    assign run_kem_func = (~en_kem_funcs_prev) & en_kem_funcs_o;// Rising edge
+
 
     FSM_KEM u_fsm_kem (
         .clk_i,
@@ -39,25 +37,19 @@ module ML_KEM
         .en_kem_funcs_o
     );
 
-    kem_module_t en_kem_modules_o, en_kem_modules_prev, module_done;
-    wire run_trng, run_sampleA, run_ntt, run_sampleCBD_2k;
+    kem_module_t en_kem_modules_o, en_kem_modules_prev, module_done, run_module;
     wire [1:0] sel_keygen, sel_all;
     assign sel_all = sel_keygen;
 
     always_ff @(posedge clk_i) begin
         en_kem_modules_prev <= en_kem_modules_o;
     end
-    assign run_trng     = !en_kem_modules_prev.trng & en_kem_modules_o.trng; // Rising edge
-    assign run_sampleA  = !en_kem_modules_prev.sampleA & en_kem_modules_o.sampleA; //Rising edge
-    assign run_ntt      = !en_kem_modules_prev.ntt & en_kem_modules_o.ntt; // Rising edge
-    assign run_hashG    = !en_kem_modules_prev.hashG & en_kem_modules_o.hashG; // Rising edge
-    assign run_sampleCBD_2k = !en_kem_modules_prev.sampleCBD_2k & en_kem_modules_o.sampleCBD_2k; // Rising edge
-
+    assign run_module = (~en_kem_modules_prev) & en_kem_modules_o; // Rising edge
 
     FSM_KEM_KEYGEN u_fsm_kem_keygen (
         .clk_i,
         .rst_n_i,
-        .run_i(run_keygen),
+        .run_i(run_kem_func.keygen),
         .module_done_i(module_done),
         .done_o(done.keygen),
         .sel_o(sel_keygen),
@@ -69,7 +61,7 @@ module ML_KEM
     TRNG_256 u_trng(
         .clk_i,
         .rst_n_i,
-        .run_i(run_trng),
+        .run_i(run_module.trng),
         .dvld_o(module_done.trng),
         .dout_o(trng_out)
     );
@@ -96,7 +88,7 @@ module ML_KEM
     hash_G_KEM u_hash_G(
          .clk_i,
          .rst_n_i,
-         .run_i(run_hashG),
+         .run_i(run_module.hashG),
          .in_sel_i(sel_all), // 0: din = 32 bytes, i: din = 64 bytes
          .k_i(8'(ML_KEM_K)),    // 8 bits of ML_KEM_K
          .din_i((sel_all) ? 512'hx : {256'hx, reverse_endian_256(r_d)}),
@@ -120,7 +112,7 @@ module ML_KEM
     sampleA uu0_sampleA(
         .clk_i,
         .rst_n_i,
-        .run_i(run_sampleA),
+        .run_i(run_module.sampleA),
         .rho_i(r_rho),
         .done_o(module_done.sampleA),
         .polymat_A_o()
@@ -131,7 +123,7 @@ module ML_KEM
     sampleCBD_2k u_sampleCBD_2k(
         .clk_i,
         .rst_n_i,
-        .run_i(run_sampleCBD_2k),
+        .run_i(run_module.sampleCBD_2k),
         .seed_i(r_sigma),
         .eta_i(),    // 0: eta1, 1: eta2
         .done_o(module_done.sampleCBD_2k),
