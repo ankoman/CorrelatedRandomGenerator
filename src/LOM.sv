@@ -158,14 +158,14 @@ module NTT_wrapper
     end
 
     poly_t poly_in;
-    wire [11:0] din = poly_in[255];
+    wire [11:0] din = poly_in[0];
     always @(posedge clk_i)begin
         if(run_load_a)
             poly_in <= poly_a_i;
         else if (run_load_b)
             poly_in <= poly_b_i;
         else
-            poly_in <= {poly_in[254:0], 12'd0};
+            poly_in <= {12'd0, poly_in[255:1]};
     end
 
     logic [11:0] dout;
@@ -190,7 +190,7 @@ module NTT_wrapper
         .start_fntt(run.ntt),
         .start_pwm2(run.pwm),
         .start_intt(run.intt),
-        .din,
+        .din((din[11] == 1'b1) ? din + 12'd3329 : din),
         .dout,
         .done(done_nttmod)
     );
@@ -280,4 +280,12 @@ module NTT_wrapper
             run <= '0;
     end
 
+    // function automatic poly_t poly_interleave(input poly_t poly);
+    //     poly_interleave = '0;
+    //     for (int i = 0; i < 128; i++) begin
+    //         poly_interleave[2*i] = poly[i];
+    //         poly_interleave[2*i+1] = poly[128 + i];
+    //         $display("%0d: = %0d, %0d", i, poly[i], poly[128 + i]);
+    //     end
+    // endfunction
 endmodule
