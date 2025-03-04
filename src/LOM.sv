@@ -19,12 +19,12 @@ module LOM
         input poly_t [ML_KEM_K-1:0] polyvec_s_i,
         input poly_t [ML_KEM_K-1:0] polyvec_e_i,
         input poly_t [ML_KEM_K-1:0] polyvec_r_i,
-        input poly_t [ML_KEM_K*ML_KEM_K-1:0] polymat_A_i,
+        input polymat_t polymat_A_i,
         input poly_t [ML_KEM_K-1:0] polyvec_t_i,
         input kem_mode_t mode_i
     );
 
-    // Counters
+    // Counter K
     logic [$clog2(ML_KEM_K):0] cnt_k;
     wire cnt_k_done = cnt_k[$clog2(ML_KEM_K)];  //ML-KEM-512 specific definition
     wire count = ntt_done;
@@ -36,11 +36,24 @@ module LOM
             cnt_k <= cnt_k + 1'b1;
     end
 
+    // Counter K^2
+    logic [$clog2(ML_KEM_K*ML_KEM_K):0] cnt_kk;
+    wire cnt_kk_done = cnt_kk[$clog2(ML_KEM_K*ML_KEM_K)];  //ML-KEM-512 specific definition
+    wire count_kk = ntt_done & (current_state == MUL_As);
+
+    always @(posedge clk_i) begin
+        if(!rst_n_i || cnt_kk_done)
+            cnt_kk <= '0;
+        else if(count_kk)
+            cnt_kk <= cnt_kk + 1'b1;
+    end
+
     // Input selectors
     poly_t poly_a_i, poly_b_i;
     always_comb begin : INPUT_SEL_A
         case (current_state)
             NTT_s: poly_a_i = polyvec_s_i[cnt_k];
+            MUL_As: poly_a_i = polyvec_tmp[cnt_k];
             NTT_e: poly_a_i = polyvec_e_i[cnt_k];
             default: poly_a_i = 'x;
         endcase
@@ -48,6 +61,7 @@ module LOM
 
     always_comb begin : INPUT_SEL_B
         case (current_state)
+            MUL_As: poly_b_i = polymat_A_i[cnt_kk[1]][cnt_kk[0]];   //ML-KEM-512 specific definition
             default: poly_b_i = 'x;
         endcase
     end
@@ -58,11 +72,22 @@ module LOM
         case (current_state)
             NTT_s: ntt_mode = NTT_a;
             NTT_e: ntt_mode = NTT_a;
+            MUL_As: ntt_mode = PWM_ab;
             default: ntt_mode = NTT_a;
         endcase
     end
 
     logic ntt_done;
+    poly_t poly_c_o;
+    poly_t [ML_KEM_K - 1:0] polyvec_tmp;
+
+    always @(posedge clk_i) begin
+        if(!rst_n_i)
+            polyvec_tmp <= '0;
+        else if (ntt_done)
+            polyvec_tmp[cnt_k] <= poly_c_o;
+    end
+
     NTT_wrapper u_ntt(
         .clk_i,
         .rst_n_i,
@@ -70,7 +95,7 @@ module LOM
         .poly_a_i,
         .poly_b_i,
         .mode_i(ntt_mode),
-        .poly_c_o(),
+        .poly_c_o,
         .done_o(ntt_done)
     );
 
@@ -93,6 +118,10 @@ module LOM
             end
             NTT_s: begin
                 if (cnt_k_done)
+                    next_state = MUL_As;
+            end
+            MUL_As: begin
+                if (cnt_kk_done)
                     next_state = NTT_e;
             end
             NTT_e: begin
@@ -121,8 +150,9 @@ module LOM
             run <= '0;
         else if((current_state != next_state) || ntt_done) begin
             case (next_state)
-                NTT_s: run.ntt <= 1'b1;   // Assert when cnt_k_done = 0
-                NTT_e: run.ntt <= 1'b1;   // Assert when cnt_k_done = 0
+                NTT_s: run.ntt <= 1'b1;
+                NTT_e: run.ntt <= 1'b1;
+                MUL_As: run.ntt <= 1'b1;
                 default: run <= 'd0; // default
             endcase
         end
@@ -216,15 +246,19 @@ module NTT_wrapper
         case (current_state)
             IDLE: begin
                 if (run_i)
-                    next_state = (mode_i == NTT_a) ? LOAD_A_F : (mode_i == PWM_ab) ? LOAD_A_I : IDLE;
+                    next_state = (mode_i == NTT_a) ? LOAD_A_F : (mode_i == PWM_ab) ? LOAD_B_F : IDLE;
             end
             LOAD_A_F: begin
                 if (cnt_256_done_d)
                     next_state = (mode_i == NTT_a) ? NTT : IDLE;
             end
+            LOAD_B_F: begin
+                if (cnt_256_done_d)
+                    next_state = LOAD_A_I;
+            end
             LOAD_A_I: begin
                 if (cnt_256_done_d)
-                    next_state = LOAD_B_I;
+                    next_state = PWM;
             end
             LOAD_B_I: begin
                 if (cnt_256_done_d)
