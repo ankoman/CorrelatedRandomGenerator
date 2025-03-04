@@ -17,7 +17,7 @@ module sampleA
         input rst_n_i,
         input run_i,
         input [255:0] rho_i,
-        output done_o,
+        output logic done_o,
         output polymat_t polymat_A_o
     );
     localparam CNT_WIDTH = $clog2(ML_KEM_K*ML_KEM_K);
@@ -31,7 +31,6 @@ module sampleA
 
     assign busy = |cnt_kk[1:0]; // ML-KEM-512 specific definition
     assign count = run_i || (sample_poly_done_d && busy);
-    assign done_o = cnt_kk[CNT_WIDTH] && sample_poly_done; // ML-KEM-512 specific definition
     assign index_i = cnt_kk[1]; // ML-KEM-512 specific definition
     assign index_j = cnt_kk[0]; // ML-KEM-512 specific definition
 
@@ -51,6 +50,7 @@ module sampleA
     always_ff @(posedge clk_i) begin
         sample_poly_run <= count;
         sample_poly_done_d <= sample_poly_done;
+        done_o <= cnt_kk[CNT_WIDTH] && sample_poly_done; // ML-KEM-512 specific definition
     end
 
     sampleNTT u0(

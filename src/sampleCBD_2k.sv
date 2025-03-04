@@ -19,7 +19,7 @@ module sampleCBD_2k
         input run_i,
         input [255:0] seed_i,
         input eta_i,    // 0: eta1, 1: eta2
-        output done_o,
+        output logic done_o,
         output poly_t [2*ML_KEM_K-1:0] polyvec_o
     );
     localparam CNT_WIDTH = $clog2(ML_KEM_K*2);
@@ -31,8 +31,9 @@ module sampleCBD_2k
 
     assign busy = |cnt_2k[1:0];
     assign sample_cbd_run = run_i || (sample_cbd_done && busy);
-    assign done_o = cnt_2k[CNT_WIDTH] && sample_cbd_done;
-
+    always_ff @(posedge clk_i) begin
+        done_o <= cnt_2k[CNT_WIDTH] && sample_cbd_done;
+    end
 
     always_ff @(posedge clk_i) begin
         if(!rst_n_i || done_o) begin
@@ -82,10 +83,10 @@ module sampleCBD
     end
     assign prf_run = run_i || (prf_done & !sreg_squeeze[1]);
     assign prf_done = !prf_rdy_prev & prf_rdy; // Rising edge. 
-    always_ff @(posedge clk_i) begin
-        done_o <= prf_done & sreg_squeeze[1];
-    end
-    //assign done_o = prf_done & sreg_squeeze[1];
+    // always_ff @(posedge clk_i) begin
+    //     done_o <= prf_done & sreg_squeeze[1];
+    // end
+    assign done_o = prf_done & sreg_squeeze[1];
 
     logic [1:0] sreg_squeeze;
 

@@ -25,8 +25,8 @@ module LOM
     );
 
     // Counters
-    logic [$bits(ML_KEM_K):0] cnt_k;
-    wire cnt_k_done = cnt_k[$bits(ML_KEM_K)];
+    logic [$clog2(ML_KEM_K):0] cnt_k;
+    wire cnt_k_done = cnt_k[$clog2(ML_KEM_K)];
     wire count = run.ntt;
 
     always @(posedge clk_i) begin
@@ -40,8 +40,8 @@ module LOM
     poly_t poly_a_i, poly_b_i;
     always_comb begin : INPUT_SEL_A
         case (current_state)
-            NTT_s: poly_a_i = polyvec_s_i[cnt_k];
-            NTT_e: poly_a_i = polyvec_e_i[cnt_k];
+            NTT_s: poly_a_i = polyvec_s_i[cnt_k-1'b1];  // Not a good expression
+            NTT_e: poly_a_i = polyvec_e_i[cnt_k-1'b1];  // Not a good expression
             default: poly_a_i = 'x;
         endcase
     end
