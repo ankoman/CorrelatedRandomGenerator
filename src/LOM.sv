@@ -26,8 +26,8 @@ module LOM
 
     // Counters
     logic [$clog2(ML_KEM_K):0] cnt_k;
-    wire cnt_k_done = cnt_k[$clog2(ML_KEM_K)];
-    wire count = run.ntt;
+    wire cnt_k_done = cnt_k[$clog2(ML_KEM_K)];  //ML-KEM-512 specific definition
+    wire count = ntt_done;
 
     always @(posedge clk_i) begin
         if(!rst_n_i || cnt_k_done)
@@ -40,8 +40,8 @@ module LOM
     poly_t poly_a_i, poly_b_i;
     always_comb begin : INPUT_SEL_A
         case (current_state)
-            NTT_s: poly_a_i = polyvec_s_i[cnt_k-1'b1];  // Not a good expression
-            NTT_e: poly_a_i = polyvec_e_i[cnt_k-1'b1];  // Not a good expression
+            NTT_s: poly_a_i = polyvec_s_i[cnt_k];
+            NTT_e: poly_a_i = polyvec_e_i[cnt_k];
             default: poly_a_i = 'x;
         endcase
     end
@@ -66,7 +66,7 @@ module LOM
     NTT_wrapper u_ntt(
         .clk_i,
         .rst_n_i,
-        .run_i(run.ntt),
+        .run_i(run.ntt & !cnt_k_done), // Run only when cnt_k_done = 0
         .poly_a_i,
         .poly_b_i,
         .mode_i(ntt_mode),
@@ -95,6 +95,10 @@ module LOM
                 if (cnt_k_done)
                     next_state = NTT_e;
             end
+            NTT_e: begin
+                if (cnt_k_done)
+                    next_state = IDLE;
+            end
             default: begin
                 next_state = IDLE;
             end
@@ -117,8 +121,9 @@ module LOM
             run <= '0;
         else if((current_state != next_state) || ntt_done) begin
             case (next_state)
-                NTT_s: run.ntt = 1'b1;
-                default: run = 'd0; // default
+                NTT_s: run.ntt <= 1'b1;   // Assert when cnt_k_done = 0
+                NTT_e: run.ntt <= 1'b1;   // Assert when cnt_k_done = 0
+                default: run <= 'd0; // default
             endcase
         end
         else
