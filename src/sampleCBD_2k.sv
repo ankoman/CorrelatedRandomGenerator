@@ -140,12 +140,14 @@ module sampleCBD
 
     generate
         for(genvar i = 0; i < 256; i = i + 1) begin
+            wire [2:0] cbd_tmp;
             if(i < 181)
-                assign poly_o[i] = 8'(signed'(cbd_coeffs_1st[i]));
+                assign cbd_tmp = cbd_coeffs_1st[i];
             else if(i == 181)
-                assign poly_o[i] = 8'(signed'(table_cbd3({prf_out_conv[3:0], rem_of_1st_squeeze})));
+                assign cbd_tmp = table_cbd3({prf_out_conv[3:0], rem_of_1st_squeeze});
             else
-                assign poly_o[i] = 8'(signed'(table_cbd3(prf_out_conv[(i-182)*6 + 4 +: 6])));
+                assign cbd_tmp = table_cbd3(prf_out_conv[(i-182)*6 + 4 +: 6]);
+            assign poly_o[i] = 12'(signed'(cbd_tmp)) + (12'd3329 & {12{cbd_tmp[2]}});
         end
     endgenerate
 

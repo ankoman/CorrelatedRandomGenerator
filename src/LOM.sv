@@ -12,6 +12,8 @@
 // Linear Operation Module
 module LOM 
      import TYPES_KEM::*;
+     import FUNCS::poly_add;
+     import FUNCS::poly_bit_reverse;
     (
         input clk_i,
         input rst_n_i,
@@ -36,24 +38,13 @@ module LOM
             cnt_k <= cnt_k + 1'b1;
     end
 
-    // Counter K^2
-    logic [$clog2(ML_KEM_K*ML_KEM_K):0] cnt_kk;
-    wire cnt_kk_done = cnt_kk[$clog2(ML_KEM_K*ML_KEM_K)];  //ML-KEM-512 specific definition
-    wire count_kk = ntt_done & (current_state == MUL_As);
-
-    always @(posedge clk_i) begin
-        if(!rst_n_i || cnt_kk_done)
-            cnt_kk <= '0;
-        else if(count_kk)
-            cnt_kk <= cnt_kk + 1'b1;
-    end
-
     // Input selectors
     poly_t poly_a_i, poly_b_i;
     always_comb begin : INPUT_SEL_A
         case (current_state)
             NTT_s: poly_a_i = polyvec_s_i[cnt_k];
-            MUL_As: poly_a_i = polyvec_tmp[cnt_k];
+            MUL_As1: poly_a_i = polyvec_tmp[cnt_k];
+            MUL_As2: poly_a_i = polyvec_tmp[cnt_k];
             NTT_e: poly_a_i = polyvec_e_i[cnt_k];
             default: poly_a_i = 'x;
         endcase
@@ -61,7 +52,8 @@ module LOM
 
     always_comb begin : INPUT_SEL_B
         case (current_state)
-            MUL_As: poly_b_i = polymat_A_i[cnt_kk[1]][cnt_kk[0]];   //ML-KEM-512 specific definition
+            MUL_As1: poly_b_i = poly_bit_reverse(polymat_A_i[0][cnt_k]);   //ML-KEM-512 specific definition
+            MUL_As2: poly_b_i = poly_bit_reverse(polymat_A_i[1][cnt_k]);   //ML-KEM-512 specific definition
             default: poly_b_i = 'x;
         endcase
     end
@@ -72,20 +64,32 @@ module LOM
         case (current_state)
             NTT_s: ntt_mode = NTT_a;
             NTT_e: ntt_mode = NTT_a;
-            MUL_As: ntt_mode = PWM_ab;
+            MUL_As1: ntt_mode = PWM_ab;
+            MUL_As2: ntt_mode = PWM_ab;
             default: ntt_mode = NTT_a;
         endcase
     end
 
+    // Output selector
     logic ntt_done;
     poly_t poly_c_o;
-    poly_t [ML_KEM_K - 1:0] polyvec_tmp;
+    poly_t [ML_KEM_K - 1:0] polyvec_tmp, polyvec_acc;
 
     always @(posedge clk_i) begin
-        if(!rst_n_i)
+        if(!rst_n_i)    begin
             polyvec_tmp <= '0;
-        else if (ntt_done)
-            polyvec_tmp[cnt_k] <= poly_c_o;
+            polyvec_acc <= '0;
+        end
+        else if (ntt_done) begin
+            if (current_state == NTT_s)
+                polyvec_tmp[cnt_k] <= poly_c_o;
+            else if (current_state == NTT_e)
+                polyvec_acc[cnt_k] <= poly_c_o;
+            else if (current_state == MUL_As1)
+                polyvec_acc[0] <= poly_add(polyvec_acc[0], poly_c_o);
+            else if (current_state == MUL_As2)
+                polyvec_acc[1] <= poly_add(polyvec_acc[1], poly_c_o);
+        end
     end
 
     NTT_wrapper u_ntt(
@@ -102,7 +106,7 @@ module LOM
     //FSM
     typedef enum logic [3:0] {
         IDLE, 
-        NTT_s, NTT_e, MUL_As,   // Keygen
+        NTT_s, NTT_e, MUL_As1, MUL_As2,   // Keygen
         NTT_r,                  // Enc
         NTT_u                   // Dec
     } state_lom_t;
@@ -118,13 +122,17 @@ module LOM
             end
             NTT_s: begin
                 if (cnt_k_done)
-                    next_state = MUL_As;
-            end
-            MUL_As: begin
-                if (cnt_kk_done)
                     next_state = NTT_e;
             end
             NTT_e: begin
+                if (cnt_k_done)
+                    next_state = MUL_As1;
+            end
+            MUL_As1: begin
+                if (cnt_k_done)
+                    next_state = MUL_As2;
+            end
+            MUL_As2: begin
                 if (cnt_k_done)
                     next_state = IDLE;
             end
@@ -152,7 +160,8 @@ module LOM
             case (next_state)
                 NTT_s: run.ntt <= 1'b1;
                 NTT_e: run.ntt <= 1'b1;
-                MUL_As: run.ntt <= 1'b1;
+                MUL_As1: run.ntt <= 1'b1;
+                MUL_As2: run.ntt <= 1'b1;
                 default: run <= 'd0; // default
             endcase
         end
@@ -225,14 +234,14 @@ module NTT_wrapper
         .start_fntt(run.ntt),
         .start_pwm2(run.pwm),
         .start_intt(run.intt),
-        .din((din[11] == 1'b1) ? din + 12'd3329 : din),
+        .din(din),
         .dout,
         .done(done_nttmod)
     );
 
     //FSM
     typedef enum logic [3:0] {
-        IDLE, LOAD_A_F, LOAD_B_F, LOAD_A_I, LOAD_B_I, NTT, INTT, PWM, READ_A
+        IDLE, LOAD_A_F, LOAD_B_F, LOAD_A_I, LOAD_B_I, NTT, INTT, PPWM, READ_A
     } state_ntt_t;
 
     logic state_is_idle;
@@ -246,29 +255,29 @@ module NTT_wrapper
         case (current_state)
             IDLE: begin
                 if (run_i)
-                    next_state = (mode_i == NTT_a) ? LOAD_A_F : (mode_i == PWM_ab) ? LOAD_B_F : IDLE;
+                    next_state = (mode_i == NTT_a) ? LOAD_A_F : (mode_i == PWM_ab) ? LOAD_A_I : IDLE;
             end
             LOAD_A_F: begin
                 if (cnt_256_done_d)
                     next_state = (mode_i == NTT_a) ? NTT : IDLE;
             end
-            LOAD_B_F: begin
-                if (cnt_256_done_d)
-                    next_state = LOAD_A_I;
-            end
             LOAD_A_I: begin
                 if (cnt_256_done_d)
-                    next_state = PWM;
+                    next_state = LOAD_B_I;
+            end
+            LOAD_B_F: begin
+                if (cnt_256_done_d)
+                    next_state = IDLE;
             end
             LOAD_B_I: begin
                 if (cnt_256_done_d)
-                    next_state = PWM;
+                    next_state = PPWM;
             end
             NTT: begin
                 if (done_nttmod)
                     next_state = READ_A;
             end
-            PWM: begin
+            PPWM: begin
                 if (done_nttmod)
                     next_state = READ_A;
             end
@@ -311,7 +320,7 @@ module NTT_wrapper
                 LOAD_B_I: run.load_b_i = 1'b1;
                 READ_A: run.read_a = 1'b1;
                 NTT:    run.ntt = 1'b1;
-                PWM:    run.pwm = 1'b1;
+                PPWM:    run.pwm = 1'b1;
                 default: run = 'd0; // default
             endcase
         end

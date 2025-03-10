@@ -8,8 +8,11 @@
 # TBD
 - Keccak reset下げで動作するので微妙
 - Keccak reset かけてない
+- Keccak moduleの統合
 - SampleCBD後の変数に12bitは不要。NTTの多くは12bitフル精度いらない（片入力は3bitとかでいい）
 - 各モジュールでレジスタに保存した後さらにレジスタに入れているので無駄
 - NTTのロード部分は最適化の余地あり
 - negative/positive reset混載
 - NTT moduleは負入力できない
+- 他のパラメータへの対応
+- CBDのNTTは非常に狭いレンジなので最適化できるか？

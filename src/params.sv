@@ -78,6 +78,7 @@
         import TYPES::prng_t;
         import TYPES::width_t;
         import TYPES_KEM::keccak_1600_t;
+        import TYPES_KEM::poly_t;
         function automatic prng_t make_carry_mask;
             input width_t width_i;
 
@@ -114,6 +115,25 @@
                 for (int j = 0; j < 5; j++) begin
                     keccak_1600_conv[j][i] = din[i][j]; 
                 end
+            end
+        endfunction
+
+        function automatic poly_t poly_add(input poly_t poly_a, input poly_t poly_b);
+            logic [12:0] tmp;
+            for(int i = 0; i < 256; i++) begin
+                tmp = poly_a[i] + poly_b[i];
+                poly_add[i] = (tmp > 3328) ? tmp - 3329 : tmp;
+            end
+        endfunction
+
+        function automatic poly_t poly_bit_reverse(input poly_t poly);
+            poly_bit_reverse = '0;
+            for (int i = 0; i < 64; i++) begin
+                poly_bit_reverse[4*i+0] = poly[4*i+0];
+                poly_bit_reverse[4*i+2] = poly[4*i+1];
+                poly_bit_reverse[4*i+1] = poly[4*i+2];
+                poly_bit_reverse[4*i+3] = poly[4*i+3];
+            // $display("%0d: = %0d, %0d", i, poly[i], poly[128 + i]);
             end
         endfunction
     endpackage
