@@ -26,17 +26,15 @@ class PRNG_128:
             ### 64 bit mode
             return (rnd >> 64) & 0xffffffffffffffff, rnd & 0xffffffffffffffff
 
-def PERM(dout, din, mode: int):
-    if mode == 0:
-        ### Permutation mode: dout <= din*dout
-        for i in range(len(dout)):
-            dout[i] = din[dout[i]]
-    elif mode == 1:
-        ### Inverse mode
-        for i in range(len(dout)):
-            dout[din[i]] = i
-    else:
-        raise ValueError("Invalid mode")
+def PERM(dout, x, Pi):
+    ### dout = x*Pi = Pi(x)
+    for i in range(len(dout)):
+        dout[i] = x[Pi[i]]
+
+def INV(dout, din):
+    ### dout = din^-1
+    for i in range(len(dout)):
+        dout[din[i]] = i
 
 def ADD64(din1, din2, sub=False):
     dout = []
@@ -60,28 +58,48 @@ class Shuffle:
         self.rng = np.random.default_rng(seed)
         self.AES1 = PRNG_128(key=seed.to_bytes(16, 'big'), n_prefix=0)
         self.AES2 = PRNG_128(key=seed.to_bytes(16, 'big'), n_prefix=1)
+        self.M1, self.M2, self.M3, self.M4, self.M5, self.M6 = [np.arange(N) for _ in range(6)]
+
 
     def RPG(self, n):
         return self.rng.permutation(n)
     
-    def LGA_prep(self, n):
-        ### Init
-        M1, M2, M3, M4, M5 = [np.arange(n) for _ in range(5)]
-
+    def double_share(self, n):
         ### Step1
-        M1 = self.RPG(n) # r
-        save_r = M1.copy()
-        M2 = self.RPG(n) # r1
-        M3 = self.RPG(n) # r1'
+        self.M1 = self.RPG(n) # r
+        save_r = self.M1.copy()
+        self.M2 = self.RPG(n) # r1
+        self.M3 = self.RPG(n) # r1'
 
         if self.party == 1:
             ### Step 2
-            PERM(M4, M2, 1) # r1^-1
-            PERM(M5, M3, 1) # r1'^-1
+            INV(self.M5, self.M2) # r1^-1
+            INV(self.M6, self.M3) # r1'^-1
 
             ### Step 3
-            PERM(M5, M1, 0) # M5 = r*r1'^-1=r2
-            PERM(M1, M4, 0) # M4 = r1^-1*r=r2'
+            PERM(self.M2, self.M1, self.M6) # M2 = r*r1'^-1=r2
+            PERM(self.M3, self.M5, self.M1) # M3 = r1^-1*r=r2'
+
+        return self.M2, self.M3, save_r
+
+
+    def double_share_radix(self, n):
+        ### Step1
+        self.M1 = self.RPG(n) # r
+        save_r = self.M1.copy()
+        self.M2 = self.RPG(n) # r1
+        self.M3 = self.RPG(n) # r1'
+
+        if self.party == 1:
+            ### Step 2
+            PERM(self.M4, self.M1, 1) # r^-1
+            PERM(self.M5, self.M2, 1) # r1^-1
+            PERM(self.M6, self.M3, 1) # r1'^-1
+
+            ### Step 3
+            self.M7 = self.M4.copy()  # M7 = r^-1
+            PERM(self.M6, self.M1, 0) # M6 = r*r1'^-1=r2
+            PERM(self.M1, self.M5, 0) # M1 = r1^-1*r=r2'
 
         ### Chech if r = r1r2' = r2r1'
         # PERM(M1, M2, 0) # r
@@ -89,57 +107,74 @@ class Shuffle:
         # print(M1)
         # print(M3)
 
+        if self.party == 0:
+            return self.M2, self.M3, save_r
+        else:
+            return self.M6, self.M1, save_r
+                
+    def gen_mask(self, n):
         ### Step 4-2
-        temp_a0 = []
-        temp_a1 = []
-        temp_c = []
+        a0 = []
+        a1 = []
+        c = []
         for i in range(n):
             temp = self.AES1.gen()
-            temp_a0.append(temp[0]) # a0
-            temp_a1.append(temp[1]) # a1
-            temp = self.AES2.gen()
-            temp_c.append(temp[0]) # c
+            a0.append(temp[0]) # a0
+            a1.append(temp[1]) # a1
+            c.append(self.AES2.gen()[0]) # c
 
-        temp_a0p = []
+        perm_in1 = a1 if self.party == 0 else a0
+        aip = []
         for i in range(n):
-            temp_a0p.append(temp_a1[M3[i]]) # a1r1'
-        temp_a0p = ADD64(temp_a0p, temp_c) # a0' = a1r1' + c
-
-        temp_a1p = []
-        for i in range(n):
-            temp_a1p.append(temp_a0[M1[i]]) # a0r2'
-        temp_a1p = ADD64(temp_a1p, temp_c, 1) # a1' = a0r2' - c
+            aip.append(perm_in1[self.M3[i]]) # 
 
         if self.party == 0:
-            return M2, M3, temp_a0, temp_a0p, save_r
+            aip = ADD64(aip, c)    # a0' = a1r1' + c
+            return a0, aip
         else:
-            return M5, M1, temp_a1, temp_a1p
+            aip = ADD64(aip, c, 1)    # a1' = a0r2' - c
+            return a1, aip
         
-P0 = Shuffle(seed=KEY, party=0)
-P1 = Shuffle(seed=KEY, party=1)
+    def LGA_prep(self, n):
+        ri, rip, r = self.double_share(n)
+        ai, aip = self.gen_mask(n)
+        return ri, rip, ai, aip, r
 
-r0, r0p, a0, a0p, r = P0.LGA_prep(N)
-r1, r1p, a1, a1p = P1.LGA_prep(N)
+    def radix_prep(self, n, k):
+        ri, rip, r = self.double_share(n)
+        for i in range(k):
+            ai, aip = self.gen_mask(n)
+            ri, rip, r = self.double_share_radix(n)
 
-### LGA part
-v0 = ADD64(r0, a0)
-v1 = ADD64(r1, a1)
+def main():
+    P0 = Shuffle(seed=KEY, party=0)
+    P1 = Shuffle(seed=KEY, party=1)
 
-y0 = []
-for i in range(N):
-    y0.append(v1[r0p[i]]) # a1r0'
-y0 = ADD64(y0, a0p, 1) # y0
+    r0, r0p, a0, a0p, r = P0.LGA_prep(N)
+    r1, r1p, a1, a1p, r = P1.LGA_prep(N)
 
-y1 = []
-for i in range(N):
-    y1.append(v0[r1p[i]]) # a1r2'
-y1 = ADD64(y1, a1p, 1) # y1
+    ### LGA part
+    v0 = ADD64(r0, a0)
+    v1 = ADD64(r1, a1)
 
-y = ADD64(y0, y1)
-print(f'r = {r}')
-print(f'2r = {y}')
+    y0 = []
+    for i in range(N):
+        y0.append(v1[r0p[i]]) # a1r0'
+    y0 = ADD64(y0, a0p, 1) # y0
 
-if (r == np.array(y)//2).all():
-    print("Success!")
-else:    
-    print("Failure...")
+    y1 = []
+    for i in range(N):
+        y1.append(v0[r1p[i]]) # a1r2'
+    y1 = ADD64(y1, a1p, 1) # y1
+
+    y = ADD64(y0, y1)
+    print(f'r = {r}')
+    print(f'2r = {y}')
+
+    if (r == np.array(y)//2).all():
+        print("Success!")
+    else:    
+        print("Failure...")
+
+if __name__ == "__main__":
+    main()
