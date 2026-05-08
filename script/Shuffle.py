@@ -44,7 +44,7 @@ def INV(dout, din):
     for i in range(len(dout)):
         dout[din[i]] = i
 
-def ADD64(din1, din2, sub=False):
+def general_add(din1, din2, mode = 'a64', sub=False):
     dout = []
     MASK = 0xffffffffffffffff
 
@@ -52,10 +52,15 @@ def ADD64(din1, din2, sub=False):
         a = int(din1[i])
         b = int(din2[i])
 
-        if sub:
-            dout.append((a - b) & MASK)
+        if mode == 'a64':
+            if sub:
+                dout.append((a - b) & MASK)
+            else:
+                dout.append((a + b) & MASK)
+        elif mode == 'b64' or mode == 'b32':
+            dout.append(a ^ b)
         else:
-            dout.append((a + b) & MASK)
+            raise NotImplementedError('Only a64 and b64 modes are implemented')
 
     return dout
 
@@ -115,17 +120,18 @@ class Shuffle:
         for i in range(n):
             aip.append(perm_in1[self.M7[i]]) # 
 
-        ### a64 mode以外未実装
+        ### 32 mode未実装
         if self.party == 0:
-            aip = ADD64(aip, c)    # a0' = a1r1' + c
+            aip = general_add(aip, c, mode=mode)    # a0' = a1r1' + c
             return a0, aip
         else:
-            aip = ADD64(aip, c, 1)    # a1' = a0r2' - c
+            aip = general_add(aip, c, mode=mode, sub=True)    # a1' = a0r2' - c
             return a1, aip
 
-    def LGA_prep(self, rows):
-        ri, rip, r = self.double_share(rows)
-        ai, aip = self.gen_mask(rows, 'a64')
+
+    def LGA_prep(self, rows, mode = 'a64', M1_RPG = True):
+        ri, rip, r = self.double_share(rows, M1_RPG)
+        ai, aip = self.gen_mask(rows, mode)
         dout = d_LGA_prep(r = ri, rp = rip, a = ai, ap = aip, r_raw = r)
         return dout
 
@@ -133,85 +139,80 @@ class Shuffle:
         '''
         mode = 0: 32, mode = 1: 64
         '''
-        self.M6 = np.arrange(rows)  ### Init as identity
-        ri, rip, r = self.double_share(rows)    ### <pi_2>
-        ai_2, aip_2 = self.gen_mask(rows, 'a64' if mode else 'a32')     ### Arithmetic for pi_2
-        bi, bip = self.gen_mask(rows, 'b64' if mode else 'b32')     ### Boolean for pi_2
 
-        dout = d_LGA_prep(r = ri, rp = rip, a = bi, ap = bip, r_raw = r)
+        mode_a = 'a64' if mode else 'a32'
+        mode_b = 'b64' if mode else 'b32'
+        self.M6 = np.arange(rows)  ### Init as identity
+        dout = self.LGA_prep(rows, mode_b)    ### <pi_2>
+        ai_2, aip_2 = self.gen_mask(rows, mode_a)     ### Arithmetic for pi_2
         list_dout = [dout]
         
-        for i in range(digits-2):
-            ri, rip, r = self.double_share(rows)    ### <pi_k>
-            bi, bip = self.gen_mask(rows, 'b64' if mode else 'b32')     ### Boolean for pi_k
-            dout = d_LGA_prep(r = ri, rp = rip, a = bi, ap = bip, r_raw = r)
+        for i in range(digits-1):
+            dout = self.LGA_prep(rows, mode_b)    ### <pi_k>
             list_dout.append(dout)
 
-            ri, rip, r = self.double_share(rows, False)    ### <pi_{k-1}^{-1}*pi_k>
-            ai, aip = self.gen_mask(rows, 'a64' if mode else 'a32')     ### Arithmetic for pi_k
-            dout = d_LGA_prep(r = ri, rp = rip, a = ai, ap = aip, r_raw = r)
+            if i == digits-2:
+                self.M1 = np.arange(rows)  ### Init as identity
+                dout = self.LGA_prep(rows, mode_a)    ### <pi_{n-1}^{-1}*pi_n>
+            else:
+                dout = self.LGA_prep(rows, mode_a, False)    ### <pi_{k-1}^{-1}*pi_k>
             list_dout.append(dout)
 
-        ### Last loop
-        ri, rip, r = self.double_share(rows)    ### <pi_n>
-        bi, bip = self.gen_mask(rows, 'b64' if mode else 'b32')     ### Boolean for pi_k
-        dout = d_LGA_prep(r = ri, rp = rip, a = bi, ap = bip, r_raw = r)
+        dout = self.LGA_prep(rows, mode_a, False)    ### <pi_k^-1>
         list_dout.append(dout)
-
-        self.M1 = np.arrange(rows)  ### Init as identity
-        ri, rip, r = self.double_share(rows, False)    ### <pi_{n-1}^{-1}*pi_n>
-        ai, aip = self.gen_mask(rows, 'a64' if mode else 'a32')     ### Arithmetic for pi_k
-        dout = d_LGA_prep(r = ri, rp = rip, a = ai, ap = aip, r_raw = r)
-        list_dout.append(dout)
-
-        ri, rip, r = self.double_share(rows, False)    ### <pi_k^-1>
-        ai, aip = self.gen_mask(rows, 'a64' if mode else 'a32')     ### Arithmetic for pi_k
-        list_dout.append((ai, aip))
+        list_dout.append((ai_2, aip_2))    ### Arithmetic for pi_2
 
         return list_dout
 
         
-def check_LGA_correctness(P0, P1):
+def check_LGA_correctness(P0, P1, mode='a64'):
         ### LGA part
-        v0 = ADD64(P0.r, P0.a)
-        v1 = ADD64(P1.r, P1.a)
+        v0 = general_add(P0.r, P0.a, mode=mode) # a1r0
+        v1 = general_add(P1.r, P1.a, mode=mode) # a1r2
 
         y0 = []
         for i in range(N):
             y0.append(v1[P0.rp[i]]) # a1r0'
-        y0 = ADD64(y0, P0.ap, 1) # y0
+        y0 = general_add(y0, P0.ap, mode=mode, sub=True)
 
         y1 = []
         for i in range(N):
             y1.append(v0[P1.rp[i]]) # a1r2'
-        y1 = ADD64(y1, P1.ap, 1) # y1
+        y1 = general_add(y1, P1.ap, mode=mode, sub=True)
 
-        y = ADD64(y0, y1)
+        y = general_add(y0, y1, mode=mode)
+
         print(f'r = {P0.r_raw}')
-        print(f'2r = {y}')
+        print(f'y = {y}')
 
-        if (P0.r_raw == np.array(y)//2).all():
-            return True
-        else:    
-            return False
+        if mode == 'a64':
+            return (P0.r_raw == np.array(y)//2).all()
+        elif mode == 'b64':
+            return not any(y)
 
 def test_LGA():
     P0 = Shuffle(seed=KEY, party=0)
     P1 = Shuffle(seed=KEY, party=1)
 
     for _ in range(1):
-        shares_P0 = P0.LGA_prep(N)
-        shares_P1 = P1.LGA_prep(N)
-        assert check_LGA_correctness(shares_P0, shares_P1), 'LGA correctness error'
+        mode = 'a64'
+        shares_P0 = P0.LGA_prep(N, mode=mode)
+        shares_P1 = P1.LGA_prep(N, mode=mode)
+        assert check_LGA_correctness(shares_P0, shares_P1, mode=mode), 'LGA correctness error'
 
-def test_radixSort():
+        mode = 'b64'
+        shares_P0 = P0.LGA_prep(N, mode=mode)
+        shares_P1 = P1.LGA_prep(N, mode=mode)
+        assert check_LGA_correctness(shares_P0, shares_P1, mode=mode), 'LGA correctness error'
+
+def test_radix_prep():
     P0 = Shuffle(seed=KEY, party=0)
     P1 = Shuffle(seed=KEY, party=1)
 
     for _ in range(1):
-        shares_P0 = P0.LGA_prep(N)
-        shares_P1 = P1.LGA_prep(N)
-        assert check_LGA_correctness(shares_P0. shares_P1), 'LGA correctness error'
+        shares_P0 = P0.radix_prep(N, 2, 1)
+        shares_P1 = P1.radix_prep(N, 2, 1)
+        assert check_LGA_correctness(shares_P0, shares_P1, mode='a64'), 'LGA correctness error'
 
 
 if __name__ == "__main__":
