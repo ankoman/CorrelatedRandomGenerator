@@ -1,12 +1,12 @@
 import numpy as np
 import Crypto.Cipher.AES as AES
 from Crypto.Util import Counter
-from typing import NamedTuple
-
-N = 10
+from dataclasses import dataclass
+N = 1000
 KEY = 0x1234567890abcdef1234567890abcdef
 
-class d_LGA_prep(NamedTuple):
+@dataclass
+class d_LGA_prep:
     r: np.ndarray
     rp: np.ndarray
     a: np.ndarray
@@ -38,6 +38,13 @@ def PERM(dout, x, Pi):
     ### dout = x*Pi = Pi(x)
     for i in range(len(dout)):
         dout[i] = x[Pi[i]]
+
+def _PERM(x, Pi):
+    ### dout = x*Pi = Pi(x)
+    dout = []
+    for i in range(len(dout)):
+        dout.append(x[Pi[i]])
+    return dout
 
 def INV(dout, din):
     ### dout = din^-1
@@ -84,7 +91,6 @@ class Shuffle:
         save_r = self.M1.copy()
         self.M2 = self.RPG(n) # r1
         self.M3 = self.RPG(n) # r1'
-        self.M6 = self.M4.copy() # r-^-1
 
         ### Step 2
         if self.party == 1:
@@ -95,15 +101,22 @@ class Shuffle:
         if self.party == 1:
             PERM(self.M2, self.M1, self.M5) # M2 = r*r1'^-1=r2
             PERM(self.M3, self.M4, self.M1) # M3 = r1^-1*r=r2'
+        self.M5 = self.M6.copy()
 
+        return save_r
+    
+    def step_3_2(self, M1_RPG = True, lastloop = False):
         ### Step 3-2
         self.M7 = self.M3.copy()
-        INV(self.M4, self.M1) # r^-1
-        PERM(self.M1, self.M6, self.M1)
+        if M1_RPG == True:
+            INV(self.M6, self.M1) # r^-1
+        if lastloop:
+            self.M1 = self.M5.copy()
+        else:
+            PERM(self.M1, self.M5, self.M1)
 
-        return self.M2, self.M3, save_r
+        return self.M2, self.M3
 
-                
     def gen_mask(self, n, mode):
         ### Step 4-2
         a0 = []
@@ -129,15 +142,17 @@ class Shuffle:
             return a1, aip
 
 
-    def LGA_prep(self, rows, mode = 'a64', M1_RPG = True):
-        ri, rip, r = self.double_share(rows, M1_RPG)
+    def LGA_prep(self, rows, mode = 'a64', M1_RPG = True, lastloop = False):
+        r = self.double_share(rows, M1_RPG)
+        ri, rip = self.step_3_2(M1_RPG, lastloop)
         ai, aip = self.gen_mask(rows, mode)
         dout = d_LGA_prep(r = ri, rp = rip, a = ai, ap = aip, r_raw = r)
         return dout
 
-    def radix_prep(self, rows, digits, mode = 0):
+    def radix_prep(self, rows, bitlen, mode = 0):
         '''
         mode = 0: 32, mode = 1: 64
+        digits > 1
         '''
 
         mode_a = 'a64' if mode else 'a32'
@@ -145,22 +160,18 @@ class Shuffle:
         self.M6 = np.arange(rows)  ### Init as identity
         dout = self.LGA_prep(rows, mode_b)    ### <pi_2>
         ai_2, aip_2 = self.gen_mask(rows, mode_a)     ### Arithmetic for pi_2
-        list_dout = [dout]
+        list_dout = [dout, (ai_2, aip_2)]
         
-        for i in range(digits-1):
-            dout = self.LGA_prep(rows, mode_b)    ### <pi_k>
+        for i in range(bitlen-2):
+            dout = self.LGA_prep(rows, mode_b)    ### <pi_i>
             list_dout.append(dout)
 
-            if i == digits-2:
-                self.M1 = np.arange(rows)  ### Init as identity
-                dout = self.LGA_prep(rows, mode_a)    ### <pi_{n-1}^{-1}*pi_n>
-            else:
-                dout = self.LGA_prep(rows, mode_a, False)    ### <pi_{k-1}^{-1}*pi_k>
+            lastloop = (i == bitlen-3)
+            dout = self.LGA_prep(rows, mode_a, False, lastloop)    ### <pi_{i-1}^{-1}*pi_i>
             list_dout.append(dout)
 
-        dout = self.LGA_prep(rows, mode_a, False)    ### <pi_k^-1>
+        dout = self.LGA_prep(rows, mode_a, False)    ### <pi_l^-1>
         list_dout.append(dout)
-        list_dout.append((ai_2, aip_2))    ### Arithmetic for pi_2
 
         return list_dout
 
@@ -168,7 +179,8 @@ class Shuffle:
 def check_LGA_correctness(P0, P1, mode='a64'):
         ### LGA part
         v0 = general_add(P0.r, P0.a, mode=mode) # a1r0
-        v1 = general_add(P1.r, P1.a, mode=mode) # a1r2
+        #v1 = general_add(P1.r, P1.a, mode=mode) # a1r2
+        v1 = P1.a
 
         y0 = []
         for i in range(N):
@@ -182,13 +194,56 @@ def check_LGA_correctness(P0, P1, mode='a64'):
 
         y = general_add(y0, y1, mode=mode)
 
-        print(f'r = {P0.r_raw}')
+        print(f'r = {P0.r_raw} ', end='')
         print(f'y = {y}')
 
-        if mode == 'a64':
-            return (P0.r_raw == np.array(y)//2).all()
-        elif mode == 'b64':
-            return not any(y)
+        # if mode == 'a64':
+        #     return (P0.r_raw == np.array(y)//2).all()
+        # elif mode == 'b64':
+        #     return not any(y)
+        return (P0.r_raw == y).all()
+
+def check_radix_prep_correctness(P0, P1, bitlen):
+        pi_tmp = np.arange(N)
+        pi_inv = np.arange(N)
+
+        ### Check for pi_2
+        pi_2_P0 = P0.pop(0)
+        pi_2_P1 = P1.pop(0)
+        assert check_LGA_correctness(pi_2_P0, pi_2_P1, mode='b64'), 'pi_2 check error Bool'
+        pi_2_P0.a, pi_2_P0.ap = P0.pop(0)
+        pi_2_P1.a, pi_2_P1.ap = P1.pop(0)
+        assert check_LGA_correctness(pi_2_P0, pi_2_P1, mode='a64'), 'pi_2 check error Arithmetic'
+        pi_0 = pi_2_P0.r_raw
+        print(pi_0)
+
+        ### Check for pi_i
+        for i in range(bitlen-2):
+            pi_i_P0 = P0.pop(0)
+            pi_i_P1 = P1.pop(0)
+            assert check_LGA_correctness(pi_i_P0, pi_i_P1, mode='b64'), 'pi_i check error Bool'
+            pi_1 = pi_i_P0.r_raw
+            print(f'pi_{i+3} = {pi_1}')
+            pi_i_P0 = P0.pop(0)
+            pi_i_P1 = P1.pop(0)
+            assert check_LGA_correctness(pi_i_P0, pi_i_P1, mode='a64'), 'pi_{i-1}^{-1}*pi_i check error Arithmetic'
+
+            INV(pi_inv, pi_0)
+            print(f'pi_{i+2}^-1 = {pi_inv}')
+            PERM(pi_tmp, pi_inv, pi_1)
+            print(pi_tmp, end=' ')
+            print(pi_i_P0.r_raw)
+
+            assert (pi_tmp == pi_i_P0.r_raw).all(), 'pi_{i-1}^{-1}*pi_i check error Permutation'
+            pi_0 = pi_1
+
+        ### Check for pi_ell^-1
+        pi_ell_P0 = P0.pop(0)
+        pi_ell_P1 = P1.pop(0)
+        assert check_LGA_correctness(pi_ell_P0, pi_ell_P1, mode='a64'), 'pi_ell^-1 check error Arithmetic'
+        INV(pi_inv, pi_1)
+        assert (pi_inv == pi_ell_P0.r_raw).all(), 'pi_ell^-1 check error Inversion'
+
 
 def test_LGA():
     P0 = Shuffle(seed=KEY, party=0)
@@ -209,11 +264,12 @@ def test_radix_prep():
     P0 = Shuffle(seed=KEY, party=0)
     P1 = Shuffle(seed=KEY, party=1)
 
+    bitlen = 100
     for _ in range(1):
-        shares_P0 = P0.radix_prep(N, 2, 1)
-        shares_P1 = P1.radix_prep(N, 2, 1)
-        assert check_LGA_correctness(shares_P0, shares_P1, mode='a64'), 'LGA correctness error'
+        shares_P0 = P0.radix_prep(N, bitlen, 1)
+        shares_P1 = P1.radix_prep(N, bitlen, 1)
+        check_radix_prep_correctness(shares_P0, shares_P1, bitlen)
 
 
 if __name__ == "__main__":
-    test_LGA()
+    test_radix_prep()
