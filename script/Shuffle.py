@@ -2,7 +2,7 @@ import numpy as np
 import Crypto.Cipher.AES as AES
 from Crypto.Util import Counter
 from dataclasses import dataclass
-N = 1000
+N = 10
 KEY = 0x1234567890abcdef1234567890abcdef
 
 @dataclass
@@ -13,19 +13,36 @@ class d_LGA_prep:
     ap: np.ndarray
     r_raw: np.ndarray   ### Only for checking correctness, not used in actual protocol
 
-class PRNG_128:
-    def __init__(self, key, n_prefix):
-        """ Instanciate 128 bits output PRNG using two AES-CTRs.
-        Args:
-        key: Counter mode AES key.
-        n_prefix: The number to specify unique PRNG. 0 <= n_prefix <= 127.
-        """
-        ctr = Counter.new(64, prefix = (n_prefix << 56).to_bytes(8, 'big'), little_endian=False, initial_value=0)
-        self.PRNG_128 = AES.new(key=key, mode=AES.MODE_CTR , counter=ctr)
+# class PRNG_128:
+#     def __init__(self, key, n_prefix):
+#         """ Instanciate 128 bits output PRNG using two AES-CTRs.
+#         Args:
+#         key: Counter mode AES key.
+#         n_prefix: The number to specify unique PRNG. 0 <= n_prefix <= 127.
+#         """
+#         ctr = Counter.new(64, prefix = (n_prefix << 56).to_bytes(8, 'big'), little_endian=False, initial_value=0)
+#         self.PRNG_128 = AES.new(key=key, mode=AES.MODE_CTR , counter=ctr)
 
-    def gen(self, mode = 1):
-        zero_txt = bytes.fromhex("00000000000000000000000000000000")
-        rnd = self.PRNG_128.encrypt(zero_txt)
+#     def gen(self, mode = 1):
+#         zero_txt = bytes.fromhex("00000000000000000000000000000000")
+#         rnd = self.PRNG_128.encrypt(zero_txt)
+#         rnd = int.from_bytes(rnd, 'big')
+#         if mode == 0:
+#             ### 32 bit mode
+#             return rnd >> 96, rnd >> 64 & 0xffffffff, rnd >> 32 & 0xffffffff, rnd & 0xffffffff
+#         else:
+#             ### 64 bit mode
+#             return (rnd >> 64) & 0xffffffffffffffff, rnd & 0xffffffffffffffff
+
+class PRNG_128:
+    def __init__(self, key, prefix):
+        self.prefix = prefix
+        self.PRNG_128 = AES.new(key=key, mode=AES.MODE_ECB)
+
+    def gen(self, cnt, mode = 1):
+        cnt = int(cnt)
+        din = (self.prefix << 56).to_bytes(8, 'big') + cnt.to_bytes(8, 'big')
+        rnd = self.PRNG_128.encrypt(din)
         rnd = int.from_bytes(rnd, 'big')
         if mode == 0:
             ### 32 bit mode
@@ -33,7 +50,7 @@ class PRNG_128:
         else:
             ### 64 bit mode
             return (rnd >> 64) & 0xffffffffffffffff, rnd & 0xffffffffffffffff
-
+        
 def PERM(dout, x, Pi):
     ### dout = x*Pi = Pi(x)
     for i in range(len(dout)):
@@ -52,32 +69,36 @@ def INV(dout, din):
         dout[din[i]] = i
 
 def general_add(din1, din2, mode = 'a64', sub=False):
-    dout = []
     MASK = 0xffffffffffffffff
+    a = int(din1)
+    b = int(din2)
 
-    for i in range(len(din1)):
-        a = int(din1[i])
-        b = int(din2[i])
-
-        if mode == 'a64':
-            if sub:
-                dout.append((a - b) & MASK)
-            else:
-                dout.append((a + b) & MASK)
-        elif mode == 'b64' or mode == 'b32':
-            dout.append(a ^ b)
+    if mode == 'a64':
+        if sub:
+            dout = (a - b) & MASK
         else:
-            raise NotImplementedError('Only a64 and b64 modes are implemented')
+            dout = (a + b) & MASK
+    elif mode == 'b64' or mode == 'b32':
+        dout = a ^ b
+    else:
+        raise NotImplementedError('Only a64 and b64 modes are implemented')
 
+    return dout
+
+def general_add_list(din1, din2, mode = 'a64', sub=False):
+    dout = []
+    for i in range(len(din1)):
+        dout.append(general_add(din1[i], din2[i], mode=mode, sub=sub))
     return dout
 
 class Shuffle:
     def __init__(self, seed = 0, party = 0):
-        self.seed = seed
         self.party = party
         self.rng = np.random.default_rng(seed)
-        self.AES1 = PRNG_128(key=seed.to_bytes(16, 'big'), n_prefix=0)
-        self.AES2 = PRNG_128(key=seed.to_bytes(16, 'big'), n_prefix=1)
+        self.cnt = 0
+        self.AES1 = PRNG_128(key=seed.to_bytes(16, 'big'), prefix=0)
+        self.AES2 = PRNG_128(key=seed.to_bytes(16, 'big'), prefix=1)
+        self.PERM_AES = PRNG_128(key=seed.to_bytes(16, 'big'), prefix=0)
         self.M1, self.M2, self.M3, self.M4, self.M5, self.M6, self.M7 = [np.arange(N) for _ in range(7)]
 
 
@@ -118,28 +139,23 @@ class Shuffle:
         return self.M2, self.M3
 
     def gen_mask(self, n, mode):
-        ### Step 4-2
-        a0 = []
-        a1 = []
-        c = []
-        for i in range(n):
-            temp = self.AES1.gen()
-            a0.append(temp[0]) # a0
-            a1.append(temp[1]) # a1
-            c.append(self.AES2.gen()[0]) # c
+        ### Step 4, 5
 
-        perm_in1 = a1 if self.party == 0 else a0
-        aip = []
+        list_out_ai = []
+        list_out_aip = []
+        offset = self.cnt
         for i in range(n):
-            aip.append(perm_in1[self.M7[i]]) # 
+            ai = self.AES1.gen(self.cnt)[self.party]
+            _aip = self.PERM_AES.gen(offset + self.M7[i])[1 - self.party]
+            c = self.AES2.gen(self.cnt)[0]
+            ### 32 mode未実装
+            aip = general_add(_aip, c, mode = mode, sub = self.party == 1)    # aip = _aip +- c
+            self.cnt += 1
+            
+            list_out_ai.append(ai)
+            list_out_aip.append(aip)
 
-        ### 32 mode未実装
-        if self.party == 0:
-            aip = general_add(aip, c, mode=mode)    # a0' = a1r1' + c
-            return a0, aip
-        else:
-            aip = general_add(aip, c, mode=mode, sub=True)    # a1' = a0r2' - c
-            return a1, aip
+        return list_out_ai, list_out_aip
 
 
     def LGA_prep(self, rows, mode = 'a64', M1_RPG = True, lastloop = False):
@@ -178,21 +194,21 @@ class Shuffle:
         
 def check_LGA_correctness(P0, P1, mode='a64'):
         ### LGA part
-        v0 = general_add(P0.r, P0.a, mode=mode) # a1r0
-        #v1 = general_add(P1.r, P1.a, mode=mode) # a1r2
+        v0 = general_add_list(P0.r, P0.a, mode=mode) # a1r0
+        #v1 = general_add_list(P1.r, P1.a, mode=mode) # a1r2
         v1 = P1.a
 
         y0 = []
         for i in range(N):
             y0.append(v1[P0.rp[i]]) # a1r0'
-        y0 = general_add(y0, P0.ap, mode=mode, sub=True)
+        y0 = general_add_list(y0, P0.ap, mode=mode, sub=True)
 
         y1 = []
         for i in range(N):
             y1.append(v0[P1.rp[i]]) # a1r2'
-        y1 = general_add(y1, P1.ap, mode=mode, sub=True)
+        y1 = general_add_list(y1, P1.ap, mode=mode, sub=True)
 
-        y = general_add(y0, y1, mode=mode)
+        y = general_add_list(y0, y1, mode=mode)
 
         print(f'r = {P0.r_raw} ', end='')
         print(f'y = {y}')
@@ -249,7 +265,7 @@ def test_LGA():
     P0 = Shuffle(seed=KEY, party=0)
     P1 = Shuffle(seed=KEY, party=1)
 
-    for _ in range(1):
+    for _ in range(10):
         mode = 'a64'
         shares_P0 = P0.LGA_prep(N, mode=mode)
         shares_P1 = P1.LGA_prep(N, mode=mode)
@@ -264,12 +280,13 @@ def test_radix_prep():
     P0 = Shuffle(seed=KEY, party=0)
     P1 = Shuffle(seed=KEY, party=1)
 
-    bitlen = 100
-    for _ in range(1):
+    bitlen = 10
+    for _ in range(10):
         shares_P0 = P0.radix_prep(N, bitlen, 1)
         shares_P1 = P1.radix_prep(N, bitlen, 1)
         check_radix_prep_correctness(shares_P0, shares_P1, bitlen)
 
 
 if __name__ == "__main__":
+    test_LGA()
     test_radix_prep()
