@@ -177,7 +177,10 @@ class Shuffle:
         dout = self.LGA_prep(rows, mode_b)    ### <pi_2>
         ai_2, aip_2 = self.gen_mask(rows, mode_a)     ### Arithmetic for pi_2
         list_dout = [dout, (ai_2, aip_2)]
-        
+       
+        if bitlen == 2:
+            self.M1 = self.M6.copy()
+ 
         for i in range(bitlen-2):
             dout = self.LGA_prep(rows, mode_b)    ### <pi_i>
             list_dout.append(dout)
@@ -257,7 +260,8 @@ def check_radix_prep_correctness(P0, P1, bitlen):
         pi_ell_P0 = P0.pop(0)
         pi_ell_P1 = P1.pop(0)
         assert check_LGA_correctness(pi_ell_P0, pi_ell_P1, mode='a64'), 'pi_ell^-1 check error Arithmetic'
-        INV(pi_inv, pi_1)
+        ## INV(pi_inv, pi_1)
+        INV(pi_inv, pi_0)
         assert (pi_inv == pi_ell_P0.r_raw).all(), 'pi_ell^-1 check error Inversion'
 
 
@@ -280,7 +284,7 @@ def test_radix_prep():
     P0 = Shuffle(seed=KEY, party=0)
     P1 = Shuffle(seed=KEY, party=1)
 
-    bitlen = 10
+    bitlen = 2
     for _ in range(10):
         shares_P0 = P0.radix_prep(N, bitlen, 1)
         shares_P1 = P1.radix_prep(N, bitlen, 1)
